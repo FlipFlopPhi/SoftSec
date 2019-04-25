@@ -1,7 +1,7 @@
 /**
  * 
  */
-package ru.g3.hardsec.terminal;
+package terminal;
 
 /**
  * @author pspaendonck

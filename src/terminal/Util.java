@@ -1,7 +1,7 @@
 /**
  * 
  */
-package ru.g3.hardsec.terminal;
+package terminal;
 
 
 import java.math.BigInteger;
@@ -21,9 +21,9 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.smartcardio.*;
 
-import ru.g3.hardsec.terminal.exception.CardBlockedException;
-import ru.g3.hardsec.terminal.exception.IncorrectResponseCodeException;
-import ru.g3.hardsec.terminal.exception.IncorrectSequenceNumberException;
+import terminal.exception.CardBlockedException;
+import terminal.exception.IncorrectResponseCodeException;
+import terminal.exception.IncorrectSequenceNumberException;
 /**
  * @author pspaendonck
  *
@@ -35,7 +35,6 @@ public final class Util {
 	final static int KEY_LENGTH = MODULUS_LENGTH + EXPONENT_LENGTH;
 	final static int CARDNUMBER_BYTESIZE = 4;
 	final static int HASH_LENGTH = 16;
-	
 	final static byte PIN_SUCCESFUL = 0;
 	final static byte PIN_FAILED = 1;
 	final static byte PIN_BLOCKED = 2;

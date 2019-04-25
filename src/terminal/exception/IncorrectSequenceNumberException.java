@@ -1,7 +1,7 @@
 /**
  * 
  */
-package ru.g3.hardsec.terminal.exception;
+package terminal.exception;
 
 /**
  * @author pspaendonck
