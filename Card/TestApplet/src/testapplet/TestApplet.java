@@ -4,12 +4,12 @@ import javacard.framework.*;
 
 public class TestApplet extends Applet implements ISO7816 {
     // Data definitions
-    private byte someData[];
+    //private byte someData[];
 
     public TestApplet() {
         //Do data allocations here.
-        someData = new byte[10]; // persistent data, stays on the card between resets
-        someData = JCSysytem.makeTransientByteArray((short) 10, JCSystem.CLEAR_ON_RESET); // transient data, is cleared when the card is removed from the terminal.
+        //someData = new byte[10]; // persistent data, stays on the card between resets
+        //someData = JCSysytem.makeTransientByteArray((short) 10, JCSystem.CLEAR_ON_RESET); // transient data, is cleared when the card is removed from the terminal.
 
         // Finally, register the applet.
         register();
@@ -43,7 +43,7 @@ public class TestApplet extends Applet implements ISO7816 {
         byte dataLength = buffer[OFFSET_CDATA];
         // Extract the returnLength from the apdu buffer (the last byte of the APDU buffer).
         // This is also information is also returned by apdu.setOutgoing(), so I've commented it out here.
-        //byte returnLength = buffer[(short)(OFFSET_CDATA + dataLength+1)];
+        byte returnLength = buffer[(short)(OFFSET_CDATA + dataLength+1)];
 
         // Extract the incoming data into a byte array on the card.
         // This is not a necessary step, it might be more memory efficient to not do this, and to extract data from the
@@ -62,7 +62,8 @@ public class TestApplet extends Applet implements ISO7816 {
 
         // Set the apdu to outgoing, discards any remaining input data. This also returns the expected output length.
         // I'm not sure what happens if there is no expected response, I expect returnLength to be 0 then (?)
-        short returnLength = apdu.setOutgoing();
+        //short returnLength = apdu.setOutgoing();
+	apdu.setOutgoing();
         /*if (returnLength < 5) {
             ISOException.throwIt((short) (SW_WRONG_LENGTH | 5));
         }*/
