@@ -38,6 +38,7 @@ public final class Util {
 	final static byte PIN_SUCCESFUL = 0;
 	final static byte PIN_FAILED = 1;
 	final static byte PIN_BLOCKED = 2;
+	public final static int AMOUNTONCARD_BYTESIZE = Short.BYTES;
 
 	/**
 	 * 
@@ -76,7 +77,7 @@ public final class Util {
 		}
 		//Start Communication
 		try {
-			byte[] reply = card.transmitControlCommand(0, initMsg);
+			byte[] reply = communicate(card, initMsg, CARDNUMBER_BYTESIZE + 1 + 1 + certificateT.length);
 			int cardNumber = (reply[0]*2^24) + reply[1]*2^16 + reply[2]*2^8 + reply[3];
 			byte version = reply[CARDNUMBER_BYTESIZE];
 			//We want to retrieve the publicC first
@@ -89,14 +90,14 @@ public final class Util {
 			byte[] sequenceNumberEncrypted =  Arrays.copyOfRange(reply, CARDNUMBER_BYTESIZE, CARDNUMBER_BYTESIZE+1);
 			byte returnedSeqNr = decrypt(publicC, sequenceNumberEncrypted)[0];
 			if (returnedSeqNr != R+1) throw new IncorrectSequenceNumberException();
-			// Send Message 3
+			// Send Message 3transmit
 			SecretKey aesKey = KeyGenerator.getInstance("AES").generateKey();
 			byte[] keyMsg = Arrays.copyOf(aesKey.getEncoded(), KEY_LENGTH+1);
 			keyMsg[KEY_LENGTH] = (byte) (R+2);
 			//Send + Response 
-			reply = card.transmitControlCommand(0
+			reply = communicate(card
 					, encrypt(publicC,encrypt(privateT,keyMsg))
-					);
+					, 1);
 			sequenceNumberEncrypted = decrypt(aesKey, "AES", reply);
 			if (returnedSeqNr != R+3) throw new IncorrectSequenceNumberException();
 			return aesKey;
@@ -113,7 +114,10 @@ public final class Util {
 	 * @param key the symmetric key used for communication
 	 * @param terminal the Pinnable interface used to call terminal methods.
 	 * @return a byte array containing the amount of credit stored on the card.
-	 * @throws CardException These are thrown when an error happens during communications with the card.
+	 * @throws CardException These are thrown when ancardReader.waitForCardPresent(0);
+		Card card = cardReader.connect("*"); //Establish connection using any protocol available
+		Util.handSjaak(card, TerminalType.CHARGER, versions, certificateT, publicM, privateT)
+	 error happens during communications with the card.
 	 * @throws GeneralSecurityException These are thrown when an error happens during encryption or decryption.
 	 * @throws IncorrectResponseCodeException These are thrown when the response code send in step 4 is not recognized
 	 * 	this usually means the signal is being jammed.
@@ -127,8 +131,9 @@ public final class Util {
 			byte[] hash = hash(pin);
 			for(int i=0; i<HASH_LENGTH; i++) 
 				msg[pin.length+i] = hash[i];
-			byte[] reply = decrypt(key, "AES", card.transmitControlCommand(0
-					, encrypt(key, "AES", msg))
+			byte[] reply = decrypt(key, "AES", communicate(card
+					, encrypt(key, "AES", msg)
+					,1 + Short.BYTES)
 					);
 			if (reply[0] == PIN_SUCCESFUL) {
 				byte[] amountOnCard = Arrays.copyOfRange(reply, 1, reply.length);
@@ -146,6 +151,15 @@ public final class Util {
 			}
 			
 		}
+	}
+	
+	public static byte[] communicate(Card card, byte[] message, int responseLength) throws CardException {
+		CardChannel channel = card.getBasicChannel();
+		ResponseAPDU response = channel.transmit(new CommandAPDU(0xD0, 0, 0, 0, message, message.length, responseLength));
+		int sw1 = response.getSW1();
+		if (sw1 == 0x61 | sw1 == 90)
+			return response.getData();
+		throw new CardException("Response Error returned" + response.getSW());
 	}
 	
 	/**
