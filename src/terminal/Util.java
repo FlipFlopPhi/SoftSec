@@ -126,7 +126,13 @@ public final class Util {
 	 */
 	public final static byte[] verifyPin(Card card, SecretKey key, Pinnable terminal) throws CardException, GeneralSecurityException, IncorrectResponseCodeException, CardBlockedException {
 		while(true) {
-			byte[] pin = terminal.enterPin();
+			byte[] pin;
+			try {
+				pin = terminal.enterPin();
+			} catch (InvalidPinException e) {
+				e.printStackTrace();
+				continue;
+			}
 			byte[] msg = Arrays.copyOf(pin, pin.length + HASH_LENGTH);//Copy the pin, leaving room for the hash of the pin.
 			byte[] hash = hash(pin);
 			for(int i=0; i<HASH_LENGTH; i++) 
