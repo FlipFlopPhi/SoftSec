@@ -5,6 +5,8 @@ package terminal;
 
 
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyFactory;
@@ -30,9 +32,11 @@ import terminal.exception.IncorrectSequenceNumberException;
  */
 public final class Util {
 	
-	final static int MODULUS_LENGTH = 40;
-	final static int EXPONENT_LENGTH = 40;
+	final static int MODULUS_LENGTH = 64;
+	final static int EXPONENT_LENGTH = 64;
 	final static int KEY_LENGTH = MODULUS_LENGTH + EXPONENT_LENGTH;
+	final static int DATE_BYTESIZE = 2;
+	final static int CERTIFICATE_BYTESIZE = KEY_LENGTH+ DATE_BYTESIZE;
 	final static int CARDNUMBER_BYTESIZE = 4;
 	final static int HASH_LENGTH = 16;
 	final static byte PIN_SUCCESFUL = 0;
@@ -62,7 +66,7 @@ public final class Util {
 		//Generate SequenceNumber first
 		final byte R = (byte) Math.random();
 		//Generate the initial handshake message (The Hello)
-		byte[] initMsg = new byte[1 + versions.length + 1 + certificateT.length];
+		byte[] initMsg = new byte[1 + 1+versions.length + 1 + certificateT.length];
 		initMsg[1] = type.getByte();
 		int i=2;
 		for(byte version : versions) {

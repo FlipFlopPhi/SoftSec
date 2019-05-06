@@ -2,6 +2,7 @@ package terminal;
 
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.Scanner;
@@ -17,7 +18,7 @@ import terminal.exception.IncorrectResponseCodeException;
 import terminal.exception.IncorrectSequenceNumberException;
 import terminal.util.Triple;
 
-public class TerminalWithPin implements Pinnable {
+public abstract class TerminalWithPin implements Pinnable {
 
 	private byte[] supportedCardVersions = new byte[] {1};
 	
@@ -57,15 +58,14 @@ public class TerminalWithPin implements Pinnable {
 				+ ", we suspect you are a criminal and will be terminated.");
 	}
 
-	public Triple<Card, SecretKey,byte[]> initCommunications(byte[] certificateT, PublicKey publicM, PrivateKey privateT) throws CardException, IncorrectSequenceNumberException, GeneralSecurityException, IncorrectResponseCodeException, CardBlockedException {
+	public void initCommunications(byte[] certificateT, PublicKey publicM, PrivateKey privateT) throws CardException, IncorrectSequenceNumberException, GeneralSecurityException, IncorrectResponseCodeException, CardBlockedException {
 		CardTerminal reader = TerminalFactory.getDefault().terminals().list().get(0);
 		Card card = reader.connect("*");
 		SecretKey aesKey = Util.handSjaak(card, type, supportedCardVersions
 				, certificateT, publicM, privateT);
-		return new Triple<Card, SecretKey, byte[]>(card
-				, aesKey
-				, Util.verifyPin(card, aesKey, this)
-				);
+		restOfTheCard(card, aesKey, Util.verifyPin(card, aesKey, this));
 	}
+	
+	protected abstract void restOfTheCard(Card card, SecretKey aesKey, byte[] bs) throws NoSuchAlgorithmException;
 
 }
