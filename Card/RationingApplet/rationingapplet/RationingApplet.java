@@ -7,7 +7,7 @@ public class RationingApplet extends Applet implements ISO7816 {
     // Data definitions
     //private byte someData[];
     private short oldState[];
-    private byte sequenceNumber[], terminalType[], terminalSupportedVersions[], ;
+    private byte sequenceNumber[], terminalType[], terminalSupportedVersions[];
     private static short CERTIFICATE_BYTESIZE = 130;
 
     public RationingApplet() {
