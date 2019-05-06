@@ -125,6 +125,25 @@ public class RationingApplet extends Applet implements ISO7816 {
 
     }
 
+    private byte[] HandshakeStepThree () {
+        // In this step the card receives a symmetric key and a sequence number.
+        // The symmetric key is generated so all communication between card and terminal remains confidential.
+        // To let the card know about this key, it is paired with the incremented sequence number and encrypted
+        // with the private terminal key and the public card key, and sent to the card.
+        // Upon receiving this, the card should decrypt it using their own private key and the public terminal key.
+
+        // 1. Decrypt using private key (could also be combined with step 2)
+        // private_t = ...
+        // 2. Decrypt using public terminal key
+        // msg = ... private_t ...
+        // 3. Store symmetric key
+        // aesKey = msg[...]
+        // 4. Update sequence number
+        // sequenceNumber = msg[KEY_LENGTH]
+
+        // If all goes well, the card will send a symmetric encrypted (aesKey) OK in handshake step four.
+    }
+
 
     /*private void respond() { I think this is javacard 2.2.2
 
