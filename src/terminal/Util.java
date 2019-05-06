@@ -77,7 +77,7 @@ public final class Util {
 		}
 		//Start Communication
 		try {
-			byte[] reply = communicate(card, initMsg, CARDNUMBER_BYTESIZE + 1 + 1 + certificateT.length);
+			byte[] reply = communicate(card, Step.Handshake1, initMsg, CARDNUMBER_BYTESIZE + 1 + 1 + certificateT.length);
 			int cardNumber = (reply[0]*2^24) + reply[1]*2^16 + reply[2]*2^8 + reply[3];
 			byte version = reply[CARDNUMBER_BYTESIZE];
 			//We want to retrieve the publicC first
@@ -95,7 +95,7 @@ public final class Util {
 			byte[] keyMsg = Arrays.copyOf(aesKey.getEncoded(), KEY_LENGTH+1);
 			keyMsg[KEY_LENGTH] = (byte) (R+2);
 			//Send + Response 
-			reply = communicate(card
+			reply = communicate(card, Step.Handshake2
 					, encrypt(publicC,encrypt(privateT,keyMsg))
 					, 1);
 			sequenceNumberEncrypted = decrypt(aesKey, "AES", reply);
@@ -137,7 +137,7 @@ public final class Util {
 			byte[] hash = hash(pin);
 			for(int i=0; i<HASH_LENGTH; i++) 
 				msg[pin.length+i] = hash[i];
-			byte[] reply = decrypt(key, "AES", communicate(card
+			byte[] reply = decrypt(key, "AES", communicate(card, Step.Pin
 					, encrypt(key, "AES", msg)
 					,1 + Short.BYTES)
 					);
@@ -159,9 +159,9 @@ public final class Util {
 		}
 	}
 	
-	public static byte[] communicate(Card card, byte[] message, int responseLength) throws CardException {
+	public static byte[] communicate(Card card, Step step, byte[] message, int responseLength) throws CardException {
 		CardChannel channel = card.getBasicChannel();
-		ResponseAPDU response = channel.transmit(new CommandAPDU(0xD0, 0, 0, 0, message, message.length, responseLength));
+		ResponseAPDU response = channel.transmit(new CommandAPDU(0xD0, 0, step.P1, step.P2, message, message.length, responseLength));
 		int sw1 = response.getSW1();
 		if (sw1 == 0x61 | sw1 == 90)
 			return response.getData();
