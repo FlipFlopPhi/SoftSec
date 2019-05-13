@@ -36,6 +36,7 @@ public final class Util {
 	final static int MODULUS_LENGTH = 64;
 	final static int EXPONENT_LENGTH = 64;
 	final static int KEY_LENGTH = MODULUS_LENGTH + EXPONENT_LENGTH;
+	final static int AES_KEYSIZE = 128; //AES keysize in number of bits
 	final static int DATE_BYTESIZE = 2;
 	final static int CERTIFICATE_BYTESIZE = KEY_LENGTH+ DATE_BYTESIZE;
 	final static int CARDNUMBER_BYTESIZE = 4;
@@ -98,9 +99,13 @@ public final class Util {
 			short randomIncrement = (short) Math.floorMod(returnedSeqNr - R, 2^15);
 			
 			// Send Message 3transmit
-			SecretKey aesKey = KeyGenerator.getInstance("AES").generateKey();
-			byte[] keyMsg = Arrays.copyOf(aesKey.getEncoded(), KEY_LENGTH+1);
-			keyMsg[KEY_LENGTH] = (byte) Math.floorMod(R+2*randomIncrement, 2^15);
+			KeyGenerator generator = KeyGenerator.getInstance("AES");
+			generator.init(AES_KEYSIZE); // advanced Encryption Standard as specified by NIST in FIPS 197.
+			SecretKey aesKey = generator.generateKey();
+			byte[] keyMsg = Arrays.copyOf(aesKey.getEncoded(), AES_KEYSIZE/8+2);
+			byte[] incrementedR = BytesHelper.fromShort((short) Math.floorMod(R+2*randomIncrement, 2^15));
+			keyMsg[AES_KEYSIZE/8] = incrementedR[0];
+			keyMsg[AES_KEYSIZE/8 +1] = incrementedR[1];
 			//Send + Response 
 			reply = communicate(card, Step.Handshake2
 					, encrypt(publicC,encrypt(privateT,keyMsg))
@@ -200,7 +205,7 @@ public final class Util {
 	 * @return 
 	 */
     public static byte[] decrypt(Key publicKey, byte [] encrypted) throws GeneralSecurityException{
-    	return decrypt(publicKey, "RSA", encrypted);
+    	return decrypt(publicKey, "RSA", encrypted);//Uses RSA as defined in PKCS #1
     }
     
     public static byte[] decrypt(Key key, String scheme, byte[] encrypted) throws GeneralSecurityException{
