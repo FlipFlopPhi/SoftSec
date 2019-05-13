@@ -35,5 +35,13 @@ public final class BytesHelper {
 		    }
 		    return result;
 	  }
+
+	public static short toShort(byte[] bytes) {
+		short result = 0;
+	    for (int i=0; i<2; i++) {
+	    	result = (short) (( result << 8 ) - Byte.MIN_VALUE + (short) bytes[i]);
+	    }
+	    return result;
+	}
 }
   

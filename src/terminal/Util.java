@@ -26,6 +26,7 @@ import javax.smartcardio.*;
 import terminal.exception.CardBlockedException;
 import terminal.exception.IncorrectResponseCodeException;
 import terminal.exception.IncorrectSequenceNumberException;
+import terminal.util.BytesHelper;
 /**
  * @author pspaendonck
  *
@@ -64,24 +65,25 @@ public final class Util {
 			, PrivateKey privateT) 
 					throws IncorrectSequenceNumberException, GeneralSecurityException, CardException {
 		//Generate SequenceNumber first
-		final byte R = (byte) Math.random();
+		final short R = (short) Math.floorMod((int) Math.random(), 2^15);
 		//Generate the initial handshake message (The Hello)
-		byte[] initMsg = new byte[1 + 1+versions.length + 1 + certificateT.length];
+		byte[] initMsg = new byte[1 + 1+versions.length + 2 + certificateT.length];
 		initMsg[1] = type.getByte();
 		int i=2;
 		for(byte version : versions) {
 			initMsg[i] = version;
 			i++;
 		}
-		initMsg[i] = R;
-		i++;
+		byte[] seqNr = ByteBuffer.allocate(Short.BYTES).putShort(R).array();
+		initMsg[i++] = seqNr[0];
+		initMsg[i++] = seqNr[1];
 		for(byte b : certificateT) {
 			initMsg[i] = b;
 			i++;
 		}
 		//Start Communication
 		try {
-			byte[] reply = communicate(card, Step.Handshake1, initMsg, CARDNUMBER_BYTESIZE + 1 + 1 + certificateT.length);
+			byte[] reply = communicate(card, Step.Handshake1, initMsg, CARDNUMBER_BYTESIZE + 1 + 2 + certificateT.length);
 			int cardNumber = (reply[0]*2^24) + reply[1]*2^16 + reply[2]*2^8 + reply[3];
 			byte version = reply[CARDNUMBER_BYTESIZE];
 			//We want to retrieve the publicC first
@@ -92,18 +94,19 @@ public final class Util {
 							)
 					);
 			byte[] sequenceNumberEncrypted =  Arrays.copyOfRange(reply, CARDNUMBER_BYTESIZE, CARDNUMBER_BYTESIZE+1);
-			byte returnedSeqNr = decrypt(publicC, sequenceNumberEncrypted)[0];
-			if (returnedSeqNr != R+1) throw new IncorrectSequenceNumberException();
+			short returnedSeqNr = BytesHelper.toShort(decrypt(publicC, sequenceNumberEncrypted));
+			short randomIncrement = (short) Math.floorMod(returnedSeqNr - R, 2^15);
+			
 			// Send Message 3transmit
 			SecretKey aesKey = KeyGenerator.getInstance("AES").generateKey();
 			byte[] keyMsg = Arrays.copyOf(aesKey.getEncoded(), KEY_LENGTH+1);
-			keyMsg[KEY_LENGTH] = (byte) (R+2);
+			keyMsg[KEY_LENGTH] = (byte) Math.floorMod(R+2*randomIncrement, 2^15);
 			//Send + Response 
 			reply = communicate(card, Step.Handshake2
 					, encrypt(publicC,encrypt(privateT,keyMsg))
 					, 1);
 			sequenceNumberEncrypted = decrypt(aesKey, "AES", reply);
-			if (returnedSeqNr != R+3) throw new IncorrectSequenceNumberException();
+			if (returnedSeqNr !=(byte) Math.floorMod(R+3*randomIncrement, 2^15)) throw new IncorrectSequenceNumberException();
 			return aesKey;
 		} catch (CardException e) {
 			// TODO Auto-generated catch block
