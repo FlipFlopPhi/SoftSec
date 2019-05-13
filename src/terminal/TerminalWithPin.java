@@ -66,6 +66,6 @@ public abstract class TerminalWithPin implements Pinnable {
 		restOfTheCard(card, aesKey, Util.verifyPin(card, aesKey, this));
 	}
 	
-	protected abstract void restOfTheCard(Card card, SecretKey aesKey, byte[] bs) throws NoSuchAlgorithmException;
+	protected abstract void restOfTheCard(Card card, SecretKey aesKey, byte[] bs) throws NoSuchAlgorithmException, CardException, GeneralSecurityException, IncorrectResponseCodeException;
 
 }

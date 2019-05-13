@@ -4,12 +4,15 @@
 package terminal;
 
 import java.nio.ByteBuffer;
+import java.security.GeneralSecurityException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
 import javax.crypto.SecretKey;
 import javax.smartcardio.Card;
+import javax.smartcardio.CardException;
 
+import terminal.exception.IncorrectResponseCodeException;
 import terminal.util.BytesHelper;
 
 /**
@@ -19,12 +22,13 @@ import terminal.util.BytesHelper;
 public class Charger extends TerminalWithPin {
 
 	public final static int MAXIMUM_ALLOWED_CREDIT_STORED = 300_00;
+	public final static byte TRANSFER_SUCCESSFUL = 1;
 	public Charger() {
 		super(TerminalType.CHARGER);
 	}
 
 	@Override
-	protected void restOfTheCard(Card card, SecretKey aesKey, byte[] bs) throws NoSuchAlgorithmException {
+	protected void restOfTheCard(Card card, SecretKey aesKey, byte[] bs) throws CardException, GeneralSecurityException, IncorrectResponseCodeException {
 		int amountOnCard = BytesHelper.toInt(bs);
 		byte[] amountRequested = getRequestedAmount(amountOnCard);
 		byte[] requestMsg = Arrays.copyOf(amountRequested, Integer.BYTES+Util.HASH_LENGTH);
@@ -32,12 +36,9 @@ public class Charger extends TerminalWithPin {
 		for(int i=0; i<hash.length; i++)
 			requestMsg[Integer.BYTES + i] = hash[i];
 		Account.testAccount.decreaseBy(amountRequested);
-		try {
-			byte[] reply = Util.communicate(card, Step.Charge
-					, Util.encrypt(aesKey, "AES", requestMsg), 1);
-		} catch(Exception e) {
-			Account.testAccount.increaseBy(amountRequested);
-		}
+		byte[] reply = Util.communicate(card, Step.Charge, Util.encrypt(aesKey, "AES", requestMsg), 1);
+		if (Util.decrypt(aesKey, "AES", reply)[0] != TRANSFER_SUCCESSFUL)
+			throw new IncorrectResponseCodeException(TRANSFER_SUCCESSFUL);
 	}
 
 	/**
