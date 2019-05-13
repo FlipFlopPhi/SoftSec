@@ -5,6 +5,8 @@ package terminal;
 
 
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyFactory;
@@ -24,20 +26,24 @@ import javax.smartcardio.*;
 import terminal.exception.CardBlockedException;
 import terminal.exception.IncorrectResponseCodeException;
 import terminal.exception.IncorrectSequenceNumberException;
+import terminal.util.BytesHelper;
 /**
  * @author pspaendonck
  *
  */
 public final class Util {
 	
-	final static int MODULUS_LENGTH = 40;
-	final static int EXPONENT_LENGTH = 40;
+	final static int MODULUS_LENGTH = 64;
+	final static int EXPONENT_LENGTH = 64;
 	final static int KEY_LENGTH = MODULUS_LENGTH + EXPONENT_LENGTH;
+	final static int DATE_BYTESIZE = 2;
+	final static int CERTIFICATE_BYTESIZE = KEY_LENGTH+ DATE_BYTESIZE;
 	final static int CARDNUMBER_BYTESIZE = 4;
 	final static int HASH_LENGTH = 16;
 	final static byte PIN_SUCCESFUL = 0;
 	final static byte PIN_FAILED = 1;
 	final static byte PIN_BLOCKED = 2;
+	public final static int AMOUNTONCARD_BYTESIZE = Short.BYTES;
 
 	/**
 	 * 
@@ -59,24 +65,25 @@ public final class Util {
 			, PrivateKey privateT) 
 					throws IncorrectSequenceNumberException, GeneralSecurityException, CardException {
 		//Generate SequenceNumber first
-		final byte R = (byte) Math.random();
+		final short R = (short) Math.floorMod((int) Math.random(), 2^15);
 		//Generate the initial handshake message (The Hello)
-		byte[] initMsg = new byte[1 + versions.length + 1 + certificateT.length];
+		byte[] initMsg = new byte[1 + 1+versions.length + 2 + certificateT.length];
 		initMsg[1] = type.getByte();
 		int i=2;
 		for(byte version : versions) {
 			initMsg[i] = version;
 			i++;
 		}
-		initMsg[i] = R;
-		i++;
+		byte[] seqNr = ByteBuffer.allocate(Short.BYTES).putShort(R).array();
+		initMsg[i++] = seqNr[0];
+		initMsg[i++] = seqNr[1];
 		for(byte b : certificateT) {
 			initMsg[i] = b;
 			i++;
 		}
 		//Start Communication
 		try {
-			byte[] reply = card.transmitControlCommand(0, initMsg);
+			byte[] reply = communicate(card, Step.Handshake1, initMsg, CARDNUMBER_BYTESIZE + 1 + 2 + certificateT.length);
 			int cardNumber = (reply[0]*2^24) + reply[1]*2^16 + reply[2]*2^8 + reply[3];
 			byte version = reply[CARDNUMBER_BYTESIZE];
 			//We want to retrieve the publicC first
@@ -87,18 +94,19 @@ public final class Util {
 							)
 					);
 			byte[] sequenceNumberEncrypted =  Arrays.copyOfRange(reply, CARDNUMBER_BYTESIZE, CARDNUMBER_BYTESIZE+1);
-			byte returnedSeqNr = decrypt(publicC, sequenceNumberEncrypted)[0];
-			if (returnedSeqNr != R+1) throw new IncorrectSequenceNumberException();
-			// Send Message 3
+			short returnedSeqNr = BytesHelper.toShort(decrypt(publicC, sequenceNumberEncrypted));
+			short randomIncrement = (short) Math.floorMod(returnedSeqNr - R, 2^15);
+			
+			// Send Message 3transmit
 			SecretKey aesKey = KeyGenerator.getInstance("AES").generateKey();
 			byte[] keyMsg = Arrays.copyOf(aesKey.getEncoded(), KEY_LENGTH+1);
-			keyMsg[KEY_LENGTH] = (byte) (R+2);
+			keyMsg[KEY_LENGTH] = (byte) Math.floorMod(R+2*randomIncrement, 2^15);
 			//Send + Response 
-			reply = card.transmitControlCommand(0
+			reply = communicate(card, Step.Handshake2
 					, encrypt(publicC,encrypt(privateT,keyMsg))
-					);
+					, 1);
 			sequenceNumberEncrypted = decrypt(aesKey, "AES", reply);
-			if (returnedSeqNr != R+3) throw new IncorrectSequenceNumberException();
+			if (returnedSeqNr !=(byte) Math.floorMod(R+3*randomIncrement, 2^15)) throw new IncorrectSequenceNumberException();
 			return aesKey;
 		} catch (CardException e) {
 			// TODO Auto-generated catch block
@@ -113,7 +121,10 @@ public final class Util {
 	 * @param key the symmetric key used for communication
 	 * @param terminal the Pinnable interface used to call terminal methods.
 	 * @return a byte array containing the amount of credit stored on the card.
-	 * @throws CardException These are thrown when an error happens during communications with the card.
+	 * @throws CardException These are thrown when ancardReader.waitForCardPresent(0);
+		Card card = cardReader.connect("*"); //Establish connection using any protocol available
+		Util.handSjaak(card, TerminalType.CHARGER, versions, certificateT, publicM, privateT)
+	 error happens during communications with the card.
 	 * @throws GeneralSecurityException These are thrown when an error happens during encryption or decryption.
 	 * @throws IncorrectResponseCodeException These are thrown when the response code send in step 4 is not recognized
 	 * 	this usually means the signal is being jammed.
@@ -122,13 +133,20 @@ public final class Util {
 	 */
 	public final static byte[] verifyPin(Card card, SecretKey key, Pinnable terminal) throws CardException, GeneralSecurityException, IncorrectResponseCodeException, CardBlockedException {
 		while(true) {
-			byte[] pin = terminal.enterPin();
+			byte[] pin;
+			try {
+				pin = terminal.enterPin();
+			} catch (InvalidPinException e) {
+				e.printStackTrace();
+				continue;
+			}
 			byte[] msg = Arrays.copyOf(pin, pin.length + HASH_LENGTH);//Copy the pin, leaving room for the hash of the pin.
 			byte[] hash = hash(pin);
 			for(int i=0; i<HASH_LENGTH; i++) 
 				msg[pin.length+i] = hash[i];
-			byte[] reply = decrypt(key, "AES", card.transmitControlCommand(0
-					, encrypt(key, "AES", msg))
+			byte[] reply = decrypt(key, "AES", communicate(card, Step.Pin
+					, encrypt(key, "AES", msg)
+					,1 + Short.BYTES)
 					);
 			if (reply[0] == PIN_SUCCESFUL) {
 				byte[] amountOnCard = Arrays.copyOfRange(reply, 1, reply.length);
@@ -146,6 +164,15 @@ public final class Util {
 			}
 			
 		}
+	}
+	
+	public static byte[] communicate(Card card, Step step, byte[] message, int responseLength) throws CardException {
+		CardChannel channel = card.getBasicChannel();
+		ResponseAPDU response = channel.transmit(new CommandAPDU(0xD0, 0, step.P1, step.P2, message, message.length, responseLength));
+		int sw1 = response.getSW1();
+		if (sw1 == 0x61 | sw1 == 90)
+			return response.getData();
+		throw new CardException("Response Error returned" + response.getSW());
 	}
 	
 	/**

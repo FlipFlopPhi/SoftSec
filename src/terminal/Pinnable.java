@@ -9,7 +9,7 @@ package terminal;
  */
 public interface Pinnable {
 	
-	public byte[] enterPin();
+	public byte[] enterPin() throws InvalidPinException;
 
 	public void showSucces();
 
