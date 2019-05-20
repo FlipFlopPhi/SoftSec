@@ -10,10 +10,21 @@ public class RationingApplet extends Applet implements ISO7816 {
     private byte sequenceNumber[], terminalType[], terminalSupportedVersions[];
     private static short CERTIFICATE_BYTESIZE = 130;
 
+    // Keys & cipher
+    RSAPublicKey pubKey;
+    RSAPrivateKey privKey;
+    Cipher cipher;
+
     public RationingApplet() {
         //Do data allocations here.
         //someData = new byte[10]; // persistent data, stays on the card between resets
         //someData = JCSystem.makeTransientByteArray((short) 10, JCSystem.CLEAR_ON_RESET); // transient data, is cleared when the card is removed from the terminal.
+
+        pubKey = (RSAPublicKey)KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC,
+                KeyBuilder.LENGTH_RSA_1024,false);
+        privKey = (RSAPrivateKey)KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PRIVATE,
+                KeyBuilder.LENGTH_RSA_1024,false);
+        cipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1,false);
 
         oldState = JCSystem.makeTransientShortArray((short) 1, JCSystem.CLEAR_ON_RESET);
         sequenceNumber = JCSystem.MakeTransientByteArray((short) 1, JCSystem.CLEAR_ON_RESET);
@@ -125,21 +136,35 @@ public class RationingApplet extends Applet implements ISO7816 {
 
     }
 
-    private byte[] HandshakeStepThree () {
-        // In this step the card receives a symmetric key and a sequence number.
+    private byte[] HandshakeStepThree (byte[] buffer) {
+        // In this step the card receives a symmetric key and a sequence number + a random increment * 2.
         // The symmetric key is generated so all communication between card and terminal remains confidential.
-        // To let the card know about this key, it is paired with the incremented sequence number and encrypted
-        // with the private terminal key and the public card key, and sent to the card.
+        // To let the card know about this key, it is paired with the incremented sequence number (seq. nr. + 3*increment)
+        // and encrypted with the private terminal key and the public card key, and sent to the card.
         // Upon receiving this, the card should decrypt it using their own private key and the public terminal key.
 
-        // 1. Decrypt using private key (could also be combined with step 2)
-        // private_t = ...
-        // 2. Decrypt using public terminal key
-        // msg = ... private_t ...
+        // Note: all code below is pseudocode and not fully implemented
+
+        //short lc = (short)(buf[OFFSET_LC] & 0x00FF);
+
+        // 1. Decrypt using private key and public terminal key
+        byte [] msg;
+        cipher.init(privKey,Cipher.MODE_DECRYPT);
+        outLength = cipher.doFinal(buffer,(short)0,lc,msg,(short)0);
+
+
+        // 2. Check sequence number (given that randIncr is stored)
+        byte[] seq;
+        Util.arrayCopy(msg, ..., seq, ..., ...);
+        if (sequenceNumber[0] != seq-randIncr)
+            throw new CardException((short) 0); // placeholder error
+        incremented = sequenceNumber + randIncr*3;
+
         // 3. Store symmetric key
-        // aesKey = msg[...]
-        // 4. Update sequence number
-        // sequenceNumber = msg[KEY_LENGTH]
+        s = new byte[keyLength];
+        Util.arrayCopy(msg, (short)0, s, (short)0, keyLength);
+        aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, false);
+        aesKey.setKey(s, (short)0);
 
         // If all goes well, the card will send a symmetric encrypted (aesKey) OK in handshake step four.
     }
