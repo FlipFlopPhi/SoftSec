@@ -14,18 +14,25 @@ import javax.smartcardio.CardTerminal;
 import javax.smartcardio.TerminalFactory;
 
 import terminal.exception.CardBlockedException;
+import terminal.exception.IncorrectCertificateException;
 import terminal.exception.IncorrectResponseCodeException;
 import terminal.exception.IncorrectSequenceNumberException;
 import terminal.util.Triple;
+import terminal.util.Tuple;
 
 public abstract class TerminalWithPin implements Pinnable {
 
+	private final PrivateKey privateT;
+	public final int terminalNumber;
+	
 	private byte[] supportedCardVersions = new byte[] {1};
 	
 	public final TerminalType type;
 	
 	public TerminalWithPin(TerminalType type) {
 		this.type = type;
+		privateT = null;//TODO get the key from the backend or somewhere else
+		terminalNumber = 0;//TODO get the terminalNumber from the backend or somewhere else
 	}
 	
 	@Override
@@ -58,14 +65,16 @@ public abstract class TerminalWithPin implements Pinnable {
 				+ ", we suspect you are a criminal and will be terminated.");
 	}
 
-	public void initCommunications(byte[] certificateT, PublicKey publicM, PrivateKey privateT) throws CardException, IncorrectSequenceNumberException, GeneralSecurityException, IncorrectResponseCodeException, CardBlockedException {
+	public void initCommunications(byte[] certificateT, PublicKey publicM) throws CardException, IncorrectSequenceNumberException, GeneralSecurityException, IncorrectResponseCodeException, CardBlockedException, IncorrectCertificateException {
 		CardTerminal reader = TerminalFactory.getDefault().terminals().list().get(0);
 		Card card = reader.connect("*");
-		SecretKey aesKey = Util.handSjaak(card, type, supportedCardVersions
+		Triple<SecretKey, PublicKey, Integer> keys = Util.handSjaak(card, type, supportedCardVersions
 				, certificateT, publicM, privateT);
-		restOfTheCard(card, aesKey, Util.verifyPin(card, aesKey, this));
+		SecretKey aesKey = keys.first;
+		PublicKey publicC = keys.second;
+		restOfTheCard(card, aesKey, publicC, keys.third, Util.verifyPin(card, aesKey, this));
 	}
 	
-	protected abstract void restOfTheCard(Card card, SecretKey aesKey, byte[] bs) throws NoSuchAlgorithmException, CardException, GeneralSecurityException, IncorrectResponseCodeException;
+	protected abstract void restOfTheCard(Card card, SecretKey aesKey, PublicKey publicC, int cardNumber, byte[] bs) throws NoSuchAlgorithmException, CardException, GeneralSecurityException, IncorrectResponseCodeException, IncorrectCertificateException;
 
 }

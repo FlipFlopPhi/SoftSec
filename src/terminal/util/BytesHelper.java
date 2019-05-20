@@ -1,40 +1,24 @@
 package terminal.util;
-/*
- * Hibernate, Relational Persistence for Idiomatic Java
- *
- * Copyright (c) 2008, Red Hat Middleware LLC or third-party contributors as
- * indicated by the @author tags or express copyright attribution
- * statements applied by the authors.  All third-party contributions are
- * distributed under license by Red Hat Middleware LLC.
- *
- * This copyrighted material is made available to anyone wishing to use, modify,
- * copy, or redistribute it subject to the terms and conditions of the GNU
- * Lesser General Public License, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License
- * for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this distribution; if not, write to:
- * Free Software Foundation, Inc.
- * 51 Franklin Street, Fifth Floor
- * Boston, MA  02110-1301  USA
- *
- */
+
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.TimeZone;
 
 public final class BytesHelper {
 	
-	  private BytesHelper() {}
+
+	public final static int STARTING_YEAR = 2020;
 	
-	  public static int toInt( byte[] bytes ) {
-		    int result = 0;
-		    for (int i=0; i<4; i++) {
-		    	result = ( result << 8 ) - Byte.MIN_VALUE + (int) bytes[i];
-		    }
-		    return result;
-	  }
+	private BytesHelper() {} //this is so 
+	
+	public static int toInt( byte[] bytes ) {
+	    int result = 0;
+	    for (int i=0; i<4; i++) {
+	    	result = ( result << 8 ) - Byte.MIN_VALUE + (int) bytes[i];
+	    }
+	    return result;
+	}
 
 	public static short toShort(byte[] bytes) {
 		short result = 0;
@@ -42,6 +26,35 @@ public final class BytesHelper {
 	    	result = (short) (( result << 8 ) - Byte.MIN_VALUE + (short) bytes[i]);
 	    }
 	    return result;
+	}
+
+	public static byte[] fromShort(short value) {
+		return ByteBuffer.allocate(Short.BYTES).putShort(value).array();
+	}
+	
+	public static byte[] fromDate() {
+		Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+		int y = calendar.get(Calendar.YEAR);
+		int m = calendar.get(Calendar.MONTH);
+		int d = calendar.get(Calendar.DAY_OF_MONTH);
+		short temp = (short) ((y-STARTING_YEAR) << 9);
+		temp += m << 5;
+		temp += d;
+		
+		return fromShort(temp); // yyyyyyym mmmddddd
+	}
+	
+	public static byte[] fromPreciseDate() {
+		byte[] date = Arrays.copyOf(fromDate(), 4);
+		Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+		date[1] = (byte) calendar.get(Calendar.MINUTE);
+		date[0] = (byte) calendar.get(Calendar.HOUR_OF_DAY);
+		
+		return date; //yyyyyyym mmmddddd XX------ XXXhhhhh 
+	}
+
+	public static byte[] fromInt(int integer) {
+		return ByteBuffer.allocate(Integer.BYTES).putInt(integer).array();
 	}
 }
   
