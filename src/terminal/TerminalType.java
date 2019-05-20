@@ -9,7 +9,8 @@ package terminal;
  */
 public enum TerminalType {
 	CHARGER((byte)1)
-	, PUMP((byte)2);
+	, PUMP((byte)2)
+	, PERSONALIZER((byte) 3);
 
 	private final byte b;
 	

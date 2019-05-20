@@ -32,8 +32,7 @@ public final class BytesHelper {
 		return ByteBuffer.allocate(Short.BYTES).putShort(value).array();
 	}
 	
-	public static byte[] fromDate() {
-		Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+	public static byte[] fromDate(Calendar calendar) {
 		int y = calendar.get(Calendar.YEAR);
 		int m = calendar.get(Calendar.MONTH);
 		int d = calendar.get(Calendar.DAY_OF_MONTH);
@@ -42,6 +41,11 @@ public final class BytesHelper {
 		temp += d;
 		
 		return fromShort(temp); // yyyyyyym mmmddddd
+	}
+	
+	public static byte[] fromDate() {
+		Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+		return fromDate(calendar);
 	}
 	
 	public static byte[] fromPreciseDate() {
