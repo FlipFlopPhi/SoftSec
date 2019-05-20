@@ -11,11 +11,15 @@ public class RationingApplet extends Applet implements ISO7816 {
     private byte terminalType[];
     private RSAPublicKey terminalPublicKey[];
     private RSAPublicKey masterKey[];
+    private RSAPrivateKey privateKey[];
+    private AESKey symmetricKey[];
     private byte cardCertificate[];
     private Cipher RSACipher;
+    private Cipher AESCipher;
     private RandomData rngesus;
     private byte cardNumber[];
     private static short RSA_KEY_BYTESIZE = 128;
+    //private static short AES_KEY_BYTESIZE = ;
     private static short CERTIFICATE_BYTESIZE = 130;
     private static short HANDSHAKE_ONE_INPUT_LENGTH_MIN = 135;
     private static byte VERSION_NUMBER = 1;
@@ -216,30 +220,46 @@ public class RationingApplet extends Applet implements ISO7816 {
         // and encrypted with the private terminal key and the public card key, and sent to the card.
         // Upon receiving this, the card should decrypt it using their own private key and the public terminal key.
 
-        // Note: all code below is pseudocode and not fully implemented
+        // Note: code below is not fully implemented
 
-        //short lc = (short)(buf[OFFSET_LC] & 0x00FF);
+        // RECEIVED MESSAGE
 
         // 1. Decrypt using private key and public terminal key
-        byte [] msg;
-        cipher.init(privKey,Cipher.MODE_DECRYPT);
-        outLength = cipher.doFinal(buffer,(short)0,lc,msg,(short)0);
 
+        for (byte i = 0; i<HandShakeThreeSize; i++){
+            notepad[i] = buffer[OFFSET_CDATA+2];
+        }
+
+        RSACipher.init(privateKey,Cipher.MODE_DECRYPT);
+        RSACipher.doFinal(notepad,(short)0,HandShakeThreeSize,notepad,HandShakeThreeSize);
+
+        RSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
+        RSACipher.doFinal(notepad,(short)0,HandShakeThreeSize,notepad,HandShakeThreeSize);
 
         // 2. Check sequence number (given that randIncr is stored)
-        byte[] seq;
-        Util.arrayCopy(msg, ..., seq, ..., ...);
-        if (sequenceNumber[0] != seq-randIncr)
+        short[] receivedSequence = Util.makeShort(notepad[AES_KEY_BYTESIZE], notepad[AES_KEY_BYTESIZE+1]);
+
+        if (receivedSequence != (sequenceNumber[0] + 2*sequenceNumber[1])%(2^15)){
             throw new CardException((short) 0); // placeholder error
-        incremented = sequenceNumber + randIncr*3;
+        }
 
         // 3. Store symmetric key
-        s = new byte[keyLength];
-        Util.arrayCopy(msg, (short)0, s, (short)0, keyLength);
-        aesKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, false);
-        aesKey.setKey(s, (short)0);
+        byte[] symm;
+        for (byte i = 0; i<AES_KEY_BYTESIZE; i++){
+            symm[i] = notepad[i];
+        }
+        // somehow save it as a AESKey symmetricKey afterwards
 
         // If all goes well, the card will send a symmetric encrypted (aesKey) OK in handshake step four.
+
+        // PREPARE RESPONSE
+
+        short[] incremented = (sequenceNumber[0] + 3*sequenceNumber[1])%(2^15);
+        Util.setShort(buffer,(short)0,incremented);
+
+        AESCipher.init(symmetricKey,Cipher.MODE_ENCRYPT);
+        AESCipher.doFinal(buffer,(short)0,short(2),buffer,(short)0,(short)2);
+
     }
 
 
