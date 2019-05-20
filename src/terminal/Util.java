@@ -27,6 +27,8 @@ import terminal.exception.CardBlockedException;
 import terminal.exception.IncorrectResponseCodeException;
 import terminal.exception.IncorrectSequenceNumberException;
 import terminal.util.BytesHelper;
+import terminal.util.Triple;
+import terminal.util.Tuple;
 /**
  * @author pspaendonck
  *
@@ -60,7 +62,7 @@ public final class Util {
 	 * @throws CardException These are thrown when an error happens during communications with the card.
 	 * @throws GeneralSecurityException These are thrown when an error happens during encryption or decryption.
 	 */
-	public final static	SecretKey handSjaak(Card card
+	public final static	Triple<SecretKey, PublicKey, Integer> handSjaak(Card card
 			, TerminalType type, byte[] versions
 			, byte[] certificateT, PublicKey publicM
 			, PrivateKey privateT) 
@@ -112,7 +114,7 @@ public final class Util {
 					, 1);
 			sequenceNumberEncrypted = decrypt(aesKey, "AES", reply);
 			if (returnedSeqNr !=(byte) Math.floorMod(R+3*randomIncrement, 2^15)) throw new IncorrectSequenceNumberException();
-			return aesKey;
+			return new Triple<SecretKey, PublicKey, Integer>(aesKey,publicC,Integer.valueOf(cardNumber));
 		} catch (CardException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

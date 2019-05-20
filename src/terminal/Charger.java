@@ -3,9 +3,8 @@
  */
 package terminal;
 
-import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
-import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
 import java.util.Arrays;
 
 import javax.crypto.SecretKey;
@@ -28,7 +27,7 @@ public class Charger extends TerminalWithPin {
 	}
 
 	@Override
-	protected void restOfTheCard(Card card, SecretKey aesKey, byte[] bs) throws CardException, GeneralSecurityException, IncorrectResponseCodeException {
+	protected void restOfTheCard(Card card, SecretKey aesKey, PublicKey publicC, int cardNumber, byte[] bs) throws CardException, GeneralSecurityException, IncorrectResponseCodeException {
 		int amountOnCard = BytesHelper.toInt(bs);
 		byte[] amountRequested = getRequestedAmount(amountOnCard);
 		byte[] requestMsg = Arrays.copyOf(amountRequested, Integer.BYTES+Util.HASH_LENGTH);

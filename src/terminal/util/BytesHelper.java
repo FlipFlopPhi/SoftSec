@@ -52,5 +52,9 @@ public final class BytesHelper {
 		
 		return date; //yyyyyyym mmmddddd XX------ XXXhhhhh 
 	}
+
+	public static byte[] fromInt(int integer) {
+		return ByteBuffer.allocate(Integer.BYTES).putInt(integer).array();
+	}
 }
   
