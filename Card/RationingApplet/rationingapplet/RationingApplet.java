@@ -62,8 +62,8 @@ public class RationingApplet extends Applet implements ISO7816 {
         terminalType = JCSystem.makeTransientByteArray((short) 1, JCSystem.CLEAR_ON_RESET);
         terminalPublicKey = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_1024, false);
 
-		// Handshake step 3
-		symmetricKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_RESET, KeyBuilder.LENGTH_AES_128, false)
+        // Handshake step 3
+        symmetricKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_RESET, KeyBuilder.LENGTH_AES_128, false)
 
         // Hashing
         messageDigest = MessageDigest.getInstance(MessageDigest.ALG_MD5,false);
@@ -415,7 +415,6 @@ public class RationingApplet extends Applet implements ISO7816 {
         }
 
         // Store new credit value
-        // WIP: Maybe not the ideal way to store credit
         for (byte i = 0; i<creditSize; i++){
             creditOnCard[i] = buffer[(short) (OFFSET_CDATA + i)];
         }
