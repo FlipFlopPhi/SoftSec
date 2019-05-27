@@ -4,6 +4,7 @@
 package terminal;
 
 import java.security.GeneralSecurityException;
+import java.security.InvalidAlgorithmParameterException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import terminal.exception.IncorrectCertificateException;
 import terminal.exception.IncorrectResponseCodeException;
 import terminal.util.ByteBuilder;
 import terminal.util.BytesHelper;
+import terminal.util.Util;
 
 /**
  * @author pspaendonck
@@ -29,7 +31,7 @@ public class Pumper extends TerminalWithPin {
 
 	public final static int DECREMENT_AMOUNT = 3;
 
-	public Pumper() {
+	public Pumper() throws NoSuchAlgorithmException, InvalidAlgorithmParameterException {
 		super(TerminalType.PUMP);
 	}
 

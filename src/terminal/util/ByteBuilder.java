@@ -3,6 +3,9 @@
  */
 package terminal.util;
 
+import java.security.interfaces.RSAPublicKey;
+import java.util.Arrays;
+
 /**
  * @author pspaendonck
  *
@@ -18,9 +21,9 @@ public class ByteBuilder {
 		length = arrayLength;
 	}
 
-	public ByteBuilder add(byte[] date) {
-		for(int i=0; i<date.length; i++,top++) {
-			array[top] = date[i];
+	public ByteBuilder add(byte[] data) {
+		for(int i=0; i<data.length; i++,top++) {
+			array[top] = data[i];
 		}
 		return this;
 	}
@@ -29,5 +32,15 @@ public class ByteBuilder {
 		return this.add(BytesHelper.fromInt(integer));
 	}
 	
+	public ByteBuilder add(short value) {
+		return this.add(BytesHelper.fromShort(value));
+	}
+
+	public ByteBuilder addPublicRSAKey(RSAPublicKey rsaPublicKey) {
+		return this.add(Arrays.copyOf(rsaPublicKey.getModulus().toByteArray(),128))
+				.add(rsaPublicKey.getPublicExponent().toByteArray());
+	}
+	
+	public int getTop() {return top;}
 	
 }

@@ -12,6 +12,8 @@ import java.security.PublicKey;
 import java.util.HashMap;
 import java.util.Map;
 
+import terminal.util.Util;
+
 /**
  * @author pspaendonck
  * The magical Back End that will take care of everything!
@@ -40,7 +42,7 @@ public class BackEnd {
 		privateM = kp.getPrivate();
 	}
 	
-	public static BackEnd getInstance() {return instance;}
+	public final static BackEnd getInstance() {return instance;}
 
 	/**
 	 * This method should encrypt the information using the masterkey

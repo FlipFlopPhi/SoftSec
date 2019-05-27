@@ -4,6 +4,8 @@
 package terminal;
 
 import java.security.GeneralSecurityException;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.Arrays;
 
@@ -13,6 +15,7 @@ import javax.smartcardio.CardException;
 
 import terminal.exception.IncorrectResponseCodeException;
 import terminal.util.BytesHelper;
+import terminal.util.Util;
 
 /**
  * @author pspaendonck
@@ -22,7 +25,8 @@ public class Charger extends TerminalWithPin {
 
 	public final static int MAXIMUM_ALLOWED_CREDIT_STORED = 300_00;
 	public final static byte TRANSFER_SUCCESSFUL = 1;
-	public Charger() {
+	
+	public Charger() throws NoSuchAlgorithmException, InvalidAlgorithmParameterException {
 		super(TerminalType.CHARGER);
 	}
 
