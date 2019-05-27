@@ -19,7 +19,7 @@ public class RationingApplet extends Applet implements ISO7816 {
     private RandomData rngesus;
     private byte cardNumber[];
     private static short RSA_KEY_BYTESIZE = 128;
-    //private static short AES_KEY_BYTESIZE = ;
+    private static short AES_KEY_BYTESIZE = 16; // 128/8
     private static short CERTIFICATE_BYTESIZE = 130;
     private static short HANDSHAKE_ONE_INPUT_LENGTH_MIN = 135;
     private static byte VERSION_NUMBER = 1;
@@ -220,21 +220,19 @@ public class RationingApplet extends Applet implements ISO7816 {
         // and encrypted with the private terminal key and the public card key, and sent to the card.
         // Upon receiving this, the card should decrypt it using their own private key and the public terminal key.
 
-        // Note: code below is not fully implemented
-
         // RECEIVED MESSAGE
 
         // 1. Decrypt using private key and public terminal key
 
-        for (byte i = 0; i<HandShakeThreeSize; i++){
+        for (byte i = 0; i<AES_KEY_BYTESIZE+2; i++){
             notepad[i] = buffer[OFFSET_CDATA+2];
         }
 
         RSACipher.init(privateKey,Cipher.MODE_DECRYPT);
-        RSACipher.doFinal(notepad,(short)0,HandShakeThreeSize,notepad,HandShakeThreeSize);
+        RSACipher.doFinal(notepad,(short)0,AES_KEY_BYTESIZE+2,notepad,AES_KEY_BYTESIZE+2);
 
         RSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
-        RSACipher.doFinal(notepad,(short)0,HandShakeThreeSize,notepad,HandShakeThreeSize);
+        RSACipher.doFinal(notepad,(short)0,AES_KEY_BYTESIZE+2,notepad,AES_KEY_BYTESIZE+2);
 
         // 2. Check sequence number (given that randIncr is stored)
         short[] receivedSequence = Util.makeShort(notepad[AES_KEY_BYTESIZE], notepad[AES_KEY_BYTESIZE+1]);
@@ -248,11 +246,11 @@ public class RationingApplet extends Applet implements ISO7816 {
         for (byte i = 0; i<AES_KEY_BYTESIZE; i++){
             symm[i] = notepad[i];
         }
-        // somehow save it as a AESKey symmetricKey afterwards
-
-        // If all goes well, the card will send a symmetric encrypted (aesKey) OK in handshake step four.
+        // save it as a AESKey symmetricKey afterwards, not yet sure how exactly this is done
 
         // PREPARE RESPONSE
+
+        // The card will respond with a symmetric encrypted (aesKey) OK in handshake step four.
 
         short[] incremented = (sequenceNumber[0] + 3*sequenceNumber[1])%(2^15);
         Util.setShort(buffer,(short)0,incremented);
