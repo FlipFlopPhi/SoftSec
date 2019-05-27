@@ -20,11 +20,14 @@ public class RationingApplet extends Applet implements ISO7816 {
     private byte cardCertificate[];
     private Cipher rSACipher;
     private Cipher aESCipher;
+    private MessageDigest messageDigest;
     private RandomData rngesus;
     private byte cardNumber[];
+    private byte creditOnCard[];
     private static short RSA_KEY_BYTESIZE = 128;
     private static short AES_KEY_BYTESIZE = 16; // 128/8
     private static short CERTIFICATE_BYTESIZE = 130;
+    private static short HASH_BYTESIZE = 16;
     private static short HANDSHAKE_ONE_INPUT_LENGTH_MIN = 135;
     private static byte VERSION_NUMBER = 1;
 
@@ -61,6 +64,9 @@ public class RationingApplet extends Applet implements ISO7816 {
 
 		// Handshake step 3
 		symmetricKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_RESET, KeyBuilder.LENGTH_AES_128, false)
+
+        // Hashing
+        messageDigest = MessageDigest.getInstance(MessageDigest.ALG_MD5,false);
 
 		// Finally, register the applet.
         register();
@@ -123,6 +129,11 @@ public class RationingApplet extends Applet implements ISO7816 {
                 handshakeStepThree(apdu, dataLength);
 
                 break;
+            /*case 4:
+                if (oldState[0] != (short) ) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                }
+                charge(apdu, dataLength);*/
             case 7:
                 if (oldState[0] != (short) 0) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
@@ -272,7 +283,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         apdu.sendBytes((short) 0, returnLength);
     }
 
-    private void HandshakeStepThree (APDU apdu, byte dataLength) {
+    private void handshakeStepThree (APDU apdu, byte dataLength) {
         // In this step the card receives a symmetric key and a sequence number + a random increment * 2.
         // The symmetric key is generated so all communication between card and terminal remains confidential.
         // To let the card know about this key, it is paired with the incremented sequence number (seq. nr. + 3*increment)
@@ -381,6 +392,41 @@ public class RationingApplet extends Applet implements ISO7816 {
         }
         apdu.setOutgoingLength(returnLength);
         buffer[0] = (byte) 1;
+        apdu.sendBytes((short) 0, returnLength);
+    }
+
+    private void charge (APDU apdu, byte dataLength) {
+        byte[] buffer = apdu.getBuffer();
+
+        // Check if message is minimum length of hash size + 1
+        if (dataLength < (short) (HASH_BYTESIZE + 1)) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+
+        short creditSize = (short) (dataLength-OFFSET_CDATA-HASH_BYTESIZE);
+
+        // Check if received hashed credit equals actual hashed credit
+        messageDigest.doFinal(buffer, (short) OFFSET_CDATA, creditSize, notepad, (short) 0);
+
+        for (byte i = 0; i<HASH_BYTESIZE; i++){
+            if (notepad[i] != buffer[(short) (OFFSET_CDATA + creditSize + i)]){
+                ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+            }
+        }
+
+        // Store new credit value
+        // WIP: Maybe not the ideal way to store credit
+        for (byte i = 0; i<creditSize; i++){
+            creditOnCard[i] = buffer[(short) (OFFSET_CDATA + i)];
+        }
+
+        // Set APDU to response
+        buffer[0] = (byte) 1;
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) 1) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
         apdu.sendBytes((short) 0, returnLength);
     }
 
