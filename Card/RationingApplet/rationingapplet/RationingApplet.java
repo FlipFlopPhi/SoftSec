@@ -12,9 +12,9 @@ public class RationingApplet extends Applet implements ISO7816 {
     private short sequenceNumber[];
     private byte terminalType[];
     private RSAPrivateKey cardPrivateKey;
-    private RSAPublicKey terminalPublicKey[];
-    private RSAPublicKey masterKey[];
-    private AESKey symmetricKey[];
+    private RSAPublicKey terminalPublicKey;
+    private RSAPublicKey masterKey;
+    private AESKey symmetricKey;
     private byte cardCertificate[];
     private Cipher rSACipher;
     private Cipher aESCipher;
