@@ -1,6 +1,8 @@
 package rationingapplet;
 
 import javacard.framework.*;
+import javacard.security.*;
+import javacardx.crypto.*;
 
 public class RationingApplet extends Applet implements ISO7816 {
     // Data definitions
@@ -9,13 +11,13 @@ public class RationingApplet extends Applet implements ISO7816 {
     private short oldState[];
     private short sequenceNumber[];
     private byte terminalType[];
+    private RSAPrivateKey cardPrivateKey;
     private RSAPublicKey terminalPublicKey[];
     private RSAPublicKey masterKey[];
-    private RSAPrivateKey privateKey[];
     private AESKey symmetricKey[];
     private byte cardCertificate[];
-    private Cipher RSACipher;
-    private Cipher AESCipher;
+    private Cipher rSACipher;
+    private Cipher aESCipher;
     private RandomData rngesus;
     private byte cardNumber[];
     private static short RSA_KEY_BYTESIZE = 128;
@@ -33,24 +35,27 @@ public class RationingApplet extends Applet implements ISO7816 {
         notepad = JCSystem.makeTransientByteArray((short) 260, JCSystem.CLEAR_ON_RESET);
 
         //TODO get all the upcoming variables from personalizing
-        masterKey = new RSAPublicKey();
-        //masterKey.setExponent(buffer, offset, length);
-        //masterKey.setModulus(buffer, offset, length);
+        masterKey = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_1024, false);
+//        masterKey.setExponent(buffer, offset, length);
+//        masterKey.setModulus(buffer, offset, length);
+        cardPrivateKey = (RSAPrivateKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PRIVATE, KeyBuilder.LENGTH_RSA_1024, false);
+//        cardPrivateKey.setExponent(buffer, offset, length);
+//        cardPrivateKey.setModulus(buffer, offset, length);
         cardCertificate = new byte[130];
         cardNumber = new byte[4];
 
 
-        RSACipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
+        rSACipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
         //AES algorithm:
 
         rngesus = RandomData.getInstance(RandomData.ALG_SECURE_RANDOM);
 
         oldState = JCSystem.makeTransientShortArray((short) 1, JCSystem.CLEAR_ON_RESET);
-        sequenceNumber = JCSystem.MakeTransientShortArray((short) 2, JCSystem.CLEAR_ON_RESET); // The sequence number and how much is added per increment.
+        sequenceNumber = JCSystem.makeTransientShortArray((short) 2, JCSystem.CLEAR_ON_RESET); // The sequence number and how much is added per increment.
 
         // Handshake step 1
-        terminalType = JCSystem.MakeTransientByteArray((short) 1, JCSystem.CLEAR_ON_RESET);
-        terminalPublicKey = new RSAPublicKey();
+        terminalType = JCSystem.makeTransientByteArray((short) 1, JCSystem.CLEAR_ON_RESET);
+        terminalPublicKey = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_1024, false);
 
 		// Finally, register the applet.
         register();
@@ -98,14 +103,17 @@ public class RationingApplet extends Applet implements ISO7816 {
         switch(terminalState) {
             case 1:
                 if (oldState[0] != (short) 0) {
-                    throw new CardException((short) 0); // Maybe we should define a StateException or something, or can JavaCard not handle that?
+                    throw new ISOException((short) 0); // Maybe we should define a StateException or something, or can JavaCard not handle that?
                 }
                 buffer = handshakeStepOne(buffer, dataLength);
 
                 break;
+            case 7:
+                 buffer = personalizeStepOne(buffer, dataLength);
+
+            break;
             default:
-                throw new CardException((short) 0); // No idea what value should be passed
-                break;
+                throw new ISOException((short) 0); // No idea what value should be passed
         }
 
 
@@ -141,7 +149,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         apdu.setOutgoingLength(returnLength);
 
         // We can now edit the buffer we initially received from the APDU to add our response.
-        buffer[0] = data[0];
+//        buffer[0] = data[0];
 
         /*
         JavaCard also provides some utility methods to add larger data structures into a byte array, like the setShort()
@@ -156,10 +164,10 @@ public class RationingApplet extends Applet implements ISO7816 {
         apdu.sendBytes((short) 0, returnLength);
     }
 
-    private byte[] HandshakeStepOne (byte[] buffer, byte dataLength) {
+    private byte[] handshakeStepOne (byte[] buffer, byte dataLength) {
         // Check if the number of bytes in the APDU is not smaller than the minimum number required for this step.
         if (buffer[OFFSET_CDATA] < HANDSHAKE_ONE_INPUT_LENGTH_MIN) {
-            throw new CardException((short) 0); //TODO how do I exception?
+            throw new ISOException((short) 0); //TODO how do I exception?
         }
 
         // Extract the type of terminal we're talking to, store this to determine what protocol to switch to afterwards.
@@ -168,8 +176,8 @@ public class RationingApplet extends Applet implements ISO7816 {
         byte terminalSupportedVersionsLength = buffer[OFFSET_CDATA + 3];
 
         // Check if the supported version length fits in the data (why don't we just calculate this length value?)
-        if (terminalSupportedVersionsLength + CERTIFICATE_BYTESIZE + 4 != dataLength) {
-            throw new CardException((short) 0); //TODO how do I exception?
+        if ((short) ((short) terminalSupportedVersionsLength + CERTIFICATE_BYTESIZE + (short) 4) != (short) dataLength) {
+            throw new ISOException((short) 0); //TODO how do I exception?
         }
 
         // Check if the list of supported versions includes our version.
@@ -180,22 +188,22 @@ public class RationingApplet extends Applet implements ISO7816 {
             }
         }
         if (!supported) {
-            throw new CardException((short) 0); //TODO maybe some handling here instead?
+            throw new ISOException((short) 0); //TODO maybe some handling here instead?
         }
 
-        sequenceNumber[0] = Util.makeShort(buffer[OFFSET_CDATA + terminalSupportedVersionsLength + 2],
-                buffer[OFFSET_CDATA + terminalSupportedVersionsLength + 3]);
+        sequenceNumber[0] = Util.makeShort(buffer[(short) (OFFSET_CDATA + terminalSupportedVersionsLength + (short) 2)],
+                buffer[(short) (OFFSET_CDATA + terminalSupportedVersionsLength + (short) 3)]);
 
         for (short i = 0; i < CERTIFICATE_BYTESIZE; i++) {
-            notepad[i] = buffer[i + OFFSET_CDATA + terminalSupportedVersionsLength + 4];
+            notepad[i] = buffer[(short) (i + OFFSET_CDATA + terminalSupportedVersionsLength + (short) 4)];
         }
 
         // Decrypt the certificate with the master key.
-        RSACipher.init(masterKey, Cipher.MODE_DECRYPT);
-        RSACipher.doFinal(notepad, (short) 0, CERTIFICATE_BYTESIZE, notepad, CERTIFICATE_BYTESIZE);
+        rSACipher.init(masterKey, Cipher.MODE_DECRYPT);
+        rSACipher.doFinal(notepad, (short) 0, CERTIFICATE_BYTESIZE, notepad, CERTIFICATE_BYTESIZE);
 
-        terminalPublicKey.setExponent(notepad, 130, RSA_KEY_BYTESIZE / (short) 2);
-        terminalPublicKey.setModulus(notepad, 130+(RSA_KEY_BYTESIZE/(short)2), RSA_KEY_BYTESIZE / (short) 2);
+        terminalPublicKey.setExponent(notepad, (short) 130, (short) (RSA_KEY_BYTESIZE / (short) 2));
+        terminalPublicKey.setModulus(notepad, (short) ((short) 130 + (RSA_KEY_BYTESIZE/(short)2)), (short) (RSA_KEY_BYTESIZE / (short) 2));
 
         // Start building the response
         // Add the card number
@@ -208,9 +216,20 @@ public class RationingApplet extends Applet implements ISO7816 {
 
         // Generate sequence number increment and apply it
         rngesus.generateData(notepad, (short) 0, (short) 2);
-        sequenceNumber[1] = Util.makeShort(notepad[0], notepad[1]);
+        sequenceNumber[1] = (short) (Util.makeShort(notepad[0], notepad[1]) % (short) 2^15);
+        sequenceNumber[0] = (short) ((short) (sequenceNumber[0] + sequenceNumber[1]) % (short) 2^15);
 
+        rSACipher.init(cardPrivateKey, Cipher.MODE_ENCRYPT);
+        Util.setShort(notepad, (short) 0, sequenceNumber[0]);
+        rSACipher.doFinal(notepad, (short) 0, (short) 2, notepad, (short) 2);
+        buffer[5] = notepad[2];
+        buffer[6] = notepad[3];
 
+        for (short i = 0; i < CERTIFICATE_BYTESIZE; i++) {
+            buffer[(short) (i + 7)] = cardCertificate[i];
+        }
+
+        return buffer;
     }
 
     private byte[] HandshakeStepThree (byte[] buffer) {
@@ -228,11 +247,11 @@ public class RationingApplet extends Applet implements ISO7816 {
             notepad[i] = buffer[OFFSET_CDATA+2];
         }
 
-        RSACipher.init(privateKey,Cipher.MODE_DECRYPT);
-        RSACipher.doFinal(notepad,(short)0,AES_KEY_BYTESIZE+2,notepad,AES_KEY_BYTESIZE+2);
+        rSACipher.init(cardPrivateKey,Cipher.MODE_DECRYPT);
+        rSACipher.doFinal(notepad,(short)0,AES_KEY_BYTESIZE+2,notepad,AES_KEY_BYTESIZE+2);
 
-        RSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
-        RSACipher.doFinal(notepad,(short)0,AES_KEY_BYTESIZE+2,notepad,AES_KEY_BYTESIZE+2);
+        rSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
+        rSACipher.doFinal(notepad,(short)0,AES_KEY_BYTESIZE+2,notepad,AES_KEY_BYTESIZE+2);
 
         // 2. Check sequence number (given that randIncr is stored)
         short[] receivedSequence = Util.makeShort(notepad[AES_KEY_BYTESIZE], notepad[AES_KEY_BYTESIZE+1]);
@@ -255,11 +274,49 @@ public class RationingApplet extends Applet implements ISO7816 {
         short[] incremented = (sequenceNumber[0] + 3*sequenceNumber[1])%(2^15);
         Util.setShort(buffer,(short)0,incremented);
 
-        AESCipher.init(symmetricKey,Cipher.MODE_ENCRYPT);
-        AESCipher.doFinal(buffer,(short)0,short(2),buffer,(short)0,(short)2);
-
+        aESCipher.init(symmetricKey,Cipher.MODE_ENCRYPT);
+        aESCipher.doFinal(buffer,(short)0,short(2),buffer,(short)0,(short)2);
+        
+        return null; //debug return statement
     }
 
+    private byte[] personalizeStepOne (byte[] buffer, byte dataLength) {
+        // Private key (128 bytes), Pin (4 bytes), Cardnumber (4 bytes)
+        cardPrivateKey.setExponent(buffer, OFFSET_CDATA, (short) (RSA_KEY_BYTESIZE / (short) 2));
+        cardPrivateKey.setModulus(buffer, (short) (OFFSET_CDATA + (short) (RSA_KEY_BYTESIZE / (short) 2)), (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE);
+
+        //TODO actually configure the PIN here.
+        for (short i = 0; i < 4; i++) {
+            notepad[i] = buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + i)];
+        }
+
+        for (short i = 0; i < 4; i++) {
+            cardNumber[i] = buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + i + 4)];
+        }
+
+        //TODO response
+        // Response (1 byte)
+    }
+
+    private byte[] personalizeStepTwo (byte[] buffer, byte dataLength) {
+        // Master key (128 bytes)
+        masterKey.setExponent(buffer, OFFSET_CDATA, (short) (RSA_KEY_BYTESIZE / (short) 2));
+        masterKey.setModulus(buffer, (short) (OFFSET_CDATA + (short) (RSA_KEY_BYTESIZE / (short) 2)), (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE);
+
+
+        //TODO response
+        // Response (1 byte)
+    }
+
+    private byte[] personalizeStepThree (byte[] buffer, byte dataLength) {
+        // Certificate (130 byte)
+        for (short i = 0; i < CERTIFICATE_BYTESIZE; i++) {
+            cardCertificate[i] = buffer[OFFSET_CDATA + i];
+        }
+
+        //TODO response
+        // Response (1 byte)
+    }
 
     /*private void respond() { I think this is javacard 2.2.2
 
