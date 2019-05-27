@@ -143,6 +143,7 @@ public class RationingApplet extends Applet implements ISO7816 {
                 ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 break;
         }
+        oldState[0] = terminalState;
 
         // Extract the returnLength from the apdu buffer (the last byte of the APDU buffer).
         // This is also information is also returned by apdu.setOutgoing(), so I've commented it out here.
