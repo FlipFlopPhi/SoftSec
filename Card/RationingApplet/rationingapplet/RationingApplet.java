@@ -59,6 +59,9 @@ public class RationingApplet extends Applet implements ISO7816 {
         terminalType = JCSystem.makeTransientByteArray((short) 1, JCSystem.CLEAR_ON_RESET);
         terminalPublicKey = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_1024, false);
 
+		// Handshake step 3
+		symmetricKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_RESET, KeyBuilder.LENGTH_AES_128, false)
+
 		// Finally, register the applet.
         register();
     }
@@ -196,7 +199,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         byte[] buffer = apdu.getBuffer();
         // Check if the number of bytes in the APDU is not smaller than the minimum number required for this step.
         if (buffer[OFFSET_LC] < HANDSHAKE_ONE_INPUT_LENGTH_MIN) {
-            ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
         // Extract the type of terminal we're talking to, store this to determine what protocol to switch to afterwards.
@@ -269,7 +272,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         apdu.sendBytes((short) 0, returnLength);
     }
 
-    private byte[] HandshakeStepThree (byte[] buffer) {
+    private void HandshakeStepThree (APDU apdu, byte dataLength) {
         // In this step the card receives a symmetric key and a sequence number + a random increment * 2.
         // The symmetric key is generated so all communication between card and terminal remains confidential.
         // To let the card know about this key, it is paired with the incremented sequence number (seq. nr. + 3*increment)
@@ -277,7 +280,10 @@ public class RationingApplet extends Applet implements ISO7816 {
         // Upon receiving this, the card should decrypt it using their own private key and the public terminal key.
 
         // RECEIVED MESSAGE
-
+		byte[] buffer = apdu.getBuffer();
+		if (dataLength != (short) (AES_KEY_BYTESIZE + 2)) {
+			ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+		}
         // 1. Decrypt using private key and public terminal key
 
         for (byte i = 0; i<AES_KEY_BYTESIZE+2; i++){
@@ -285,36 +291,38 @@ public class RationingApplet extends Applet implements ISO7816 {
         }
 
         rSACipher.init(cardPrivateKey,Cipher.MODE_DECRYPT);
-        rSACipher.doFinal(notepad,(short)0,AES_KEY_BYTESIZE+2,notepad,AES_KEY_BYTESIZE+2);
+        rSACipher.doFinal(notepad,(short)0,(short) (AES_KEY_BYTESIZE+2), notepad, (short) (AES_KEY_BYTESIZE+2));
 
         rSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
-        rSACipher.doFinal(notepad,(short)0,AES_KEY_BYTESIZE+2,notepad,AES_KEY_BYTESIZE+2);
+        rSACipher.doFinal(notepad,(short)0,(short) (AES_KEY_BYTESIZE+2), notepad, (short) (AES_KEY_BYTESIZE+2));
 
         // 2. Check sequence number (given that randIncr is stored)
-        short[] receivedSequence = Util.makeShort(notepad[AES_KEY_BYTESIZE], notepad[AES_KEY_BYTESIZE+1]);
+        short receivedSequence = Util.makeShort(notepad[AES_KEY_BYTESIZE], notepad[(short) (AES_KEY_BYTESIZE+1)]);
 
-        if (receivedSequence != (sequenceNumber[0] + 2*sequenceNumber[1])%(2^15)){
-            throw new CardException((short) 0); // placeholder error
+        if (receivedSequence != (short) (sequenceNumber[0] + 2*sequenceNumber[1])%(2^15)){
+            ISOException.throwIt(ISO7816.STATUS_NOT_SATISFIED);
         }
 
         // 3. Store symmetric key
-        byte[] symm;
-        for (byte i = 0; i<AES_KEY_BYTESIZE; i++){
-            symm[i] = notepad[i];
-        }
-        // save it as a AESKey symmetricKey afterwards, not yet sure how exactly this is done
+		symmetricKey.setKey(notepad, (short) 0);
 
         // PREPARE RESPONSE
 
         // The card will respond with a symmetric encrypted (aesKey) OK in handshake step four.
 
-        short[] incremented = (sequenceNumber[0] + 3*sequenceNumber[1])%(2^15);
+        short incremented = (short) (sequenceNumber[0] + 3*sequenceNumber[1])%(2^15);
         Util.setShort(buffer,(short)0,incremented);
 
         aESCipher.init(symmetricKey,Cipher.MODE_ENCRYPT);
         aESCipher.doFinal(buffer,(short)0,short(2),buffer,(short)0,(short)2);
         
-        return null; //debug return statement
+        // Set APDU to response
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) ((short) 7 + CERTIFICATE_BYTESIZE)) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
+		apdu.sendBytes((short) 0, returnLength);
     }
 
     private void personalizeStepOne (APDU apdu, byte dataLength) {
