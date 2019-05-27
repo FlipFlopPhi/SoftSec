@@ -4,6 +4,8 @@ import javacard.framework.*;
 import javacard.security.*;
 import javacardx.crypto.*;
 
+import javax.smartcardio.CardException;
+
 public class RationingApplet extends Applet implements ISO7816 {
     // Data definitions
     //private byte someData[];
@@ -94,26 +96,28 @@ public class RationingApplet extends Applet implements ISO7816 {
         byte[] buffer = apdu.getBuffer();
         // Find out how long the incoming data is in bytes (the 5th byte of the APDU buffer)
         byte dataLength = buffer[OFFSET_CDATA];
+        if (selectingApplet()) {
+            return;
+        }
 
         short terminalState = Util.makeShort(buffer[OFFSET_P1], buffer[OFFSET_P2]);
 
         switch(terminalState) {
             case 1:
                 if (oldState[0] != (short) 0) {
-                    throw new ISOException((short) 0); // Maybe we should define a StateException or something, or can JavaCard not handle that?
+                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
-                buffer = handshakeStepOne(buffer, dataLength);
+                handshakeStepOne(apdu, dataLength);
 
                 break;
             case 7:
-                 buffer = personalizeStepOne(buffer, dataLength);
+                 personalizeStepOne(apdu, dataLength);
 
             break;
             default:
-                throw new ISOException((short) 0); // No idea what value should be passed
+
+                ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
         }
-
-
 
         // Extract the returnLength from the apdu buffer (the last byte of the APDU buffer).
         // This is also information is also returned by apdu.setOutgoing(), so I've commented it out here.
@@ -130,20 +134,18 @@ public class RationingApplet extends Applet implements ISO7816 {
 
         // process() is also called with the APDU that selected this applet in the first place, ignore that APDU, it
         // has done what it had to do.
-        if (selectingApplet()) {
-            return;
-        }
+
 
         // Set the apdu to outgoing, discards any remaining input data. This also returns the expected output length.
         // I'm not sure what happens if there is no expected response, I expect returnLength to be 0 then (?)
-        short returnLength = apdu.setOutgoing();
+//        short returnLength = apdu.setOutgoing();
         /*if (returnLength < 5) {
             ISOException.throwIt((short) (SW_WRONG_LENGTH | 5));
         }*/
 
         // Set the length of the byte array we will return. This seems a bit redundant, since we also request this
         // information from the APDU, but we can performs checks on the expected return length like this, I guess.
-        apdu.setOutgoingLength(returnLength);
+//        apdu.setOutgoingLength(returnLength);
 
         // We can now edit the buffer we initially received from the APDU to add our response.
 //        buffer[0] = data[0];
@@ -158,34 +160,36 @@ public class RationingApplet extends Applet implements ISO7816 {
         // apdu.sendBytes(offset, length): Send <length> bytes off the APDU buffer starting from <offset>, note that
         // this method can be called multiple times for a single response of the card. See the JavaCard API docs:
         // javacard.framework.APDU.sendBytes()
-        apdu.sendBytes((short) 0, returnLength);
+//        apdu.sendBytes((short) 0, returnLength);
     }
 
-    private byte[] handshakeStepOne (byte[] buffer, byte dataLength) {
+    private void handshakeStepOne (APDU apdu, byte dataLength) {
+        byte[] buffer = apdu.getBuffer();
         // Check if the number of bytes in the APDU is not smaller than the minimum number required for this step.
-        if (buffer[OFFSET_CDATA] < HANDSHAKE_ONE_INPUT_LENGTH_MIN) {
-            throw new ISOException((short) 0); //TODO how do I exception?
+        if (buffer[OFFSET_LC] < HANDSHAKE_ONE_INPUT_LENGTH_MIN) {
+            ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
         }
 
         // Extract the type of terminal we're talking to, store this to determine what protocol to switch to afterwards.
-        terminalType[0] = buffer[OFFSET_CDATA + 2];
+        terminalType[0] = buffer[OFFSET_CDATA];
 
-        byte terminalSupportedVersionsLength = buffer[OFFSET_CDATA + 3];
+        byte terminalSupportedVersionsLength = buffer[OFFSET_CDATA + 1];
 
         // Check if the supported version length fits in the data (why don't we just calculate this length value?)
         if ((short) ((short) terminalSupportedVersionsLength + CERTIFICATE_BYTESIZE + (short) 4) != (short) dataLength) {
-            throw new ISOException((short) 0); //TODO how do I exception?
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
         // Check if the list of supported versions includes our version.
+        //TODO remove this check, let the terminal do this
         boolean supported = false;
-        for (byte i = OFFSET_CDATA+4; i < terminalSupportedVersionsLength; i++) {
+        for (byte i = OFFSET_CDATA+2; i < terminalSupportedVersionsLength; i++) {
             if (buffer[i] == VERSION_NUMBER) {
                 supported = true;
             }
         }
         if (!supported) {
-            throw new ISOException((short) 0); //TODO maybe some handling here instead?
+            ISOException.throwIt(ISO7816.SW_DATA_INVALID);
         }
 
         sequenceNumber[0] = Util.makeShort(buffer[(short) (OFFSET_CDATA + terminalSupportedVersionsLength + (short) 2)],
@@ -203,6 +207,13 @@ public class RationingApplet extends Applet implements ISO7816 {
         terminalPublicKey.setModulus(notepad, (short) ((short) 130 + (RSA_KEY_BYTESIZE/(short)2)), (short) (RSA_KEY_BYTESIZE / (short) 2));
 
         // Start building the response
+        // Set APDU to response
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) ((short) 7 + CERTIFICATE_BYTESIZE)) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
+
         // Add the card number
         for (short i = 0; i < 4; i++) {
             buffer[i] = cardNumber[i];
@@ -226,7 +237,7 @@ public class RationingApplet extends Applet implements ISO7816 {
             buffer[(short) (i + 7)] = cardCertificate[i];
         }
 
-        return buffer;
+        apdu.sendBytes((short) 0, returnLength);
     }
 
     private byte[] HandshakeStepThree () {
@@ -249,10 +260,11 @@ public class RationingApplet extends Applet implements ISO7816 {
         return null; //debug return statement
     }
 
-    private byte[] personalizeStepOne (byte[] buffer, byte dataLength) {
+    private void personalizeStepOne (APDU apdu, byte dataLength) {
+        byte[] buffer = apdu.getBuffer();
         // Private key (128 bytes), Pin (4 bytes), Cardnumber (4 bytes)
         cardPrivateKey.setExponent(buffer, OFFSET_CDATA, (short) (RSA_KEY_BYTESIZE / (short) 2));
-        cardPrivateKey.setModulus(buffer, (short) (OFFSET_CDATA + (short) (RSA_KEY_BYTESIZE / (short) 2)), (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE);
+        cardPrivateKey.setModulus(buffer, (short) (OFFSET_CDATA + (short) (RSA_KEY_BYTESIZE / (short) 2)), (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE));
 
         //TODO actually configure the PIN here.
         for (short i = 0; i < 4; i++) {
@@ -263,28 +275,48 @@ public class RationingApplet extends Applet implements ISO7816 {
             cardNumber[i] = buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + i + 4)];
         }
 
-        //TODO response
         // Response (1 byte)
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) 1) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
+        buffer[0] = (byte) 1;
+        apdu.sendBytes((short) 0, returnLength);
     }
 
-    private byte[] personalizeStepTwo (byte[] buffer, byte dataLength) {
+    private void personalizeStepTwo (APDU apdu, byte dataLength) {
+        byte[] buffer = apdu.getBuffer();
         // Master key (128 bytes)
         masterKey.setExponent(buffer, OFFSET_CDATA, (short) (RSA_KEY_BYTESIZE / (short) 2));
-        masterKey.setModulus(buffer, (short) (OFFSET_CDATA + (short) (RSA_KEY_BYTESIZE / (short) 2)), (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE);
+        masterKey.setModulus(buffer, (short) (OFFSET_CDATA + (short) (RSA_KEY_BYTESIZE / (short) 2)), (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE));
 
 
-        //TODO response
         // Response (1 byte)
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) 1) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
+        buffer[0] = (byte) 1;
+        apdu.sendBytes((short) 0, returnLength);
     }
 
-    private byte[] personalizeStepThree (byte[] buffer, byte dataLength) {
+    private void personalizeStepThree (APDU apdu, byte dataLength) {
+        byte[] buffer = apdu.getBuffer();
         // Certificate (130 byte)
         for (short i = 0; i < CERTIFICATE_BYTESIZE; i++) {
-            cardCertificate[i] = buffer[OFFSET_CDATA + i];
+            cardCertificate[i] = buffer[(short) (OFFSET_CDATA + i)];
         }
 
-        //TODO response
         // Response (1 byte)
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) 1) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
+        buffer[0] = (byte) 1;
+        apdu.sendBytes((short) 0, returnLength);
     }
 
     /*private void respond() { I think this is javacard 2.2.2
