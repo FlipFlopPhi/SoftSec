@@ -60,7 +60,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         terminalPublicKey = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_1024, false);
 
 		// Handshake step 3
-		symmetricKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_RESET, KeyBuilder.LENGTH_AES_128, false)
+		symmetricKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_RESET, KeyBuilder.LENGTH_AES_128, false);
 
 		// Finally, register the applet.
         register();
@@ -123,6 +123,30 @@ public class RationingApplet extends Applet implements ISO7816 {
                 handshakeStepThree(apdu, dataLength);
 
                 break;
+            case 3:
+                if (oldState[0] != (short) 2) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                }
+                pinStep(apdu, dataLength);
+                break;
+            case 4:
+                if (oldState[0] != (short) 3) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                }
+                chargeStep(apdu, dataLength);
+                break;
+            case 5:
+                if (!(oldState[0] == (short) 3 || oldState[0] == (short) 5)) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                }
+                pumpStepOne(apdu, dataLength);
+                break;
+            case 6:
+                if (oldState[0] != (short) 5) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                }
+                pumpStepTwo(apdu, dataLength);
+                break;
             case 7:
                 if (oldState[0] != (short) 0) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
@@ -138,7 +162,7 @@ public class RationingApplet extends Applet implements ISO7816 {
 
                 break;
             case 9:
-                if (oldState[0] != (short) 0) {
+                if (oldState[0] != (short) 8) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
                 personalizeStepThree(apdu, dataLength);
@@ -272,7 +296,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         apdu.sendBytes((short) 0, returnLength);
     }
 
-    private void HandshakeStepThree (APDU apdu, byte dataLength) {
+    private void handshakeStepThree (APDU apdu, byte dataLength) {
         // In this step the card receives a symmetric key and a sequence number + a random increment * 2.
         // The symmetric key is generated so all communication between card and terminal remains confidential.
         // To let the card know about this key, it is paired with the incremented sequence number (seq. nr. + 3*increment)
@@ -286,7 +310,7 @@ public class RationingApplet extends Applet implements ISO7816 {
 		}
         // 1. Decrypt using private key and public terminal key
 
-        for (byte i = 0; i<AES_KEY_BYTESIZE+2; i++){
+        for (byte i = 0; i<(short) (AES_KEY_BYTESIZE+2); i++){
             notepad[i] = buffer[OFFSET_CDATA+2];
         }
 
@@ -299,30 +323,44 @@ public class RationingApplet extends Applet implements ISO7816 {
         // 2. Check sequence number (given that randIncr is stored)
         short receivedSequence = Util.makeShort(notepad[AES_KEY_BYTESIZE], notepad[(short) (AES_KEY_BYTESIZE+1)]);
 
-        if (receivedSequence != (short) (sequenceNumber[0] + 2*sequenceNumber[1])%(2^15)){
-            ISOException.throwIt(ISO7816.STATUS_NOT_SATISFIED);
+        if (receivedSequence != (short) ((short) (sequenceNumber[0] + 2*sequenceNumber[1])%(short) (2^15))){
+            ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
         }
 
         // 3. Store symmetric key
 		symmetricKey.setKey(notepad, (short) 0);
 
         // PREPARE RESPONSE
-
-        // The card will respond with a symmetric encrypted (aesKey) OK in handshake step four.
-
-        short incremented = (short) (sequenceNumber[0] + 3*sequenceNumber[1])%(2^15);
-        Util.setShort(buffer,(short)0,incremented);
-
-        aESCipher.init(symmetricKey,Cipher.MODE_ENCRYPT);
-        aESCipher.doFinal(buffer,(short)0,short(2),buffer,(short)0,(short)2);
-        
-        // Set APDU to response
         short returnLength = apdu.setOutgoing();
         if (returnLength != (short) ((short) 7 + CERTIFICATE_BYTESIZE)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
         apdu.setOutgoingLength(returnLength);
+
+        // The card will respond with a symmetric encrypted (aesKey) OK in handshake step four.
+
+        short incremented = (short) ((short) (sequenceNumber[0] + 3*sequenceNumber[1])%(short) (2^15));
+        Util.setShort(buffer,(short)0,incremented);
+
+        aESCipher.init(symmetricKey,Cipher.MODE_ENCRYPT);
+        aESCipher.doFinal(buffer, (short) 0, (short) 2, buffer, (short) 0);
+        
+        // Set APDU to response
 		apdu.sendBytes((short) 0, returnLength);
+    }
+
+    private void pumpStepOne (APDU apdu, byte dataLength) {
+        // Incoming: Transaction info -> (saldoChange, currentDate, terminalNumber, cardNumber)
+        // encrypted with the privateT-key,
+        // and H(Transaction Info)
+        // The entire things is encrypted with the AES key
+        byte[] buffer = apdu.getBuffer();
+
+        aESCipher.init();
+
+        // Outgoing: The original transaction info, encrypted with privateT, also encrypted with privateC
+
+
     }
 
     private void personalizeStepOne (APDU apdu, byte dataLength) {
