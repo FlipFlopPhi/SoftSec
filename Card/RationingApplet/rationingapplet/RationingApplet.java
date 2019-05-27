@@ -110,13 +110,38 @@ public class RationingApplet extends Applet implements ISO7816 {
                 handshakeStepOne(apdu, dataLength);
 
                 break;
-            case 7:
-                 personalizeStepOne(apdu, dataLength);
+            case 2:
+                if (oldState[0] != (short) 1) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                }
+                handshakeStepThree(apdu, dataLength);
 
-            break;
+                break;
+            case 7:
+                if (oldState[0] != (short) 0) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                }
+                personalizeStepOne(apdu, dataLength);
+
+                break;
+            case 8:
+                if (oldState[0] != (short) 7) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                }
+                personalizeStepTwo(apdu, dataLength);
+
+                break;
+            case 9:
+                if (oldState[0] != (short) 0) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                }
+                personalizeStepThree(apdu, dataLength);
+
+                break;
             default:
 
                 ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                break;
         }
 
         // Extract the returnLength from the apdu buffer (the last byte of the APDU buffer).
