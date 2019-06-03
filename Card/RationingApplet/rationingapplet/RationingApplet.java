@@ -355,6 +355,44 @@ public class RationingApplet extends Applet implements ISO7816 {
 		apdu.sendBytes((short) 0, returnLength);
     }
 
+    private void pinStep (APDU apdu, byte dataLength) {
+        
+    }
+
+    private void chargeStep (APDU apdu, byte dataLength) {
+        byte[] buffer = apdu.getBuffer();
+
+        // Check if message is minimum length of hash size + 1
+        if (dataLength < (short) (HASH_BYTESIZE + 1)) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+
+        short creditSize = (short) (dataLength-OFFSET_CDATA-HASH_BYTESIZE);
+
+        // Check if received hashed credit equals actual hashed credit
+        messageDigest.doFinal(buffer, (short) OFFSET_CDATA, creditSize, notepad, (short) 0);
+
+        for (byte i = 0; i<HASH_BYTESIZE; i++){
+            if (notepad[i] != buffer[(short) (OFFSET_CDATA + creditSize + i)]){
+                ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+            }
+        }
+
+        // Store new credit value
+        for (byte i = 0; i<creditSize; i++){
+            creditOnCard[i] = buffer[(short) (OFFSET_CDATA + i)];
+        }
+
+        // Set APDU to response
+        buffer[0] = (byte) 1;
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) 1) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
+        apdu.sendBytes((short) 0, returnLength);
+    }
+
     private void pumpStepOne (APDU apdu, byte dataLength) {
         // Incoming: Transaction info -> (saldoChange, currentDate, terminalNumber, cardNumber)
         // encrypted with the privateT-key,
@@ -425,40 +463,6 @@ public class RationingApplet extends Applet implements ISO7816 {
         }
         apdu.setOutgoingLength(returnLength);
         buffer[0] = (byte) 1;
-        apdu.sendBytes((short) 0, returnLength);
-    }
-
-    private void chargeStep (APDU apdu, byte dataLength) {
-        byte[] buffer = apdu.getBuffer();
-
-        // Check if message is minimum length of hash size + 1
-        if (dataLength < (short) (HASH_BYTESIZE + 1)) {
-            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-        }
-
-        short creditSize = (short) (dataLength-OFFSET_CDATA-HASH_BYTESIZE);
-
-        // Check if received hashed credit equals actual hashed credit
-        messageDigest.doFinal(buffer, (short) OFFSET_CDATA, creditSize, notepad, (short) 0);
-
-        for (byte i = 0; i<HASH_BYTESIZE; i++){
-            if (notepad[i] != buffer[(short) (OFFSET_CDATA + creditSize + i)]){
-                ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-            }
-        }
-
-        // Store new credit value
-        for (byte i = 0; i<creditSize; i++){
-            creditOnCard[i] = buffer[(short) (OFFSET_CDATA + i)];
-        }
-
-        // Set APDU to response
-        buffer[0] = (byte) 1;
-        short returnLength = apdu.setOutgoing();
-        if (returnLength != (short) 1) {
-            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-        }
-        apdu.setOutgoingLength(returnLength);
         apdu.sendBytes((short) 0, returnLength);
     }
 
