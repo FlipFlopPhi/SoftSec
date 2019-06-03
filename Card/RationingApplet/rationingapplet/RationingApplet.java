@@ -306,19 +306,13 @@ public class RationingApplet extends Applet implements ISO7816 {
     }
 
     private void handshakeStepThree (APDU apdu, byte dataLength) {
-        // In this step the card receives a symmetric key and a sequence number + a random increment * 2.
-        // The symmetric key is generated so all communication between card and terminal remains confidential.
-        // To let the card know about this key, it is paired with the incremented sequence number (seq. nr. + 3*increment)
-        // and encrypted with the private terminal key and the public card key, and sent to the card.
-        // Upon receiving this, the card should decrypt it using their own private key and the public terminal key.
+        byte[] buffer = apdu.getBuffer();
 
-        // RECEIVED MESSAGE
-		byte[] buffer = apdu.getBuffer();
-		if (dataLength != (short) (AES_KEY_BYTESIZE + 2)) {
-			ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-		}
-        // 1. Decrypt using private key and public terminal key
+        if (dataLength != (short) (AES_KEY_BYTESIZE + 2)) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
 
+        // Decrypt using private key and public terminal key
         for (byte i = 0; i<(short) (AES_KEY_BYTESIZE+2); i++){
             notepad[i] = buffer[OFFSET_CDATA+2];
         }
@@ -329,24 +323,22 @@ public class RationingApplet extends Applet implements ISO7816 {
         rSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
         rSACipher.doFinal(notepad,(short)0,(short) (AES_KEY_BYTESIZE+2), notepad, (short) (AES_KEY_BYTESIZE+2));
 
-        // 2. Check sequence number (given that randIncr is stored)
+        // Check if sequence number is correct
         short receivedSequence = Util.makeShort(notepad[AES_KEY_BYTESIZE], notepad[(short) (AES_KEY_BYTESIZE+1)]);
 
         if (receivedSequence != (short) ((short) (sequenceNumber[0] + 2*sequenceNumber[1])%(short) (2^15))){
             ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
         }
 
-        // 3. Store symmetric key
-		symmetricKey.setKey(notepad, (short) 0);
+        // Store symmetric key
+        symmetricKey.setKey(notepad, (short) 0);
 
-        // PREPARE RESPONSE
+        // Prepare response; card will respond with a symmetric encrypted (aesKey) OK in handshake step four
         short returnLength = apdu.setOutgoing();
         if (returnLength != (short) ((short) 7 + CERTIFICATE_BYTESIZE)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
         apdu.setOutgoingLength(returnLength);
-
-        // The card will respond with a symmetric encrypted (aesKey) OK in handshake step four.
 
         short incremented = (short) ((short) (sequenceNumber[0] + 3*sequenceNumber[1])%(short) (2^15));
         Util.setShort(buffer,(short)0,incremented);
@@ -355,20 +347,18 @@ public class RationingApplet extends Applet implements ISO7816 {
         aESCipher.doFinal(buffer, (short) 0, (short) 2, buffer, (short) 0);
         
         // Set APDU to response
-		apdu.sendBytes((short) 0, returnLength);
+        apdu.sendBytes((short) 0, returnLength);
     }
 
     private void pinStep (APDU apdu, byte dataLength) {
-        // TODO: Set pin
-
         byte[] buffer = apdu.getBuffer();
 
-        // Check if message is minimum length of hash size + minimum pin size
+        // Check if message has size of hash + pin
         if (dataLength != (short) (HASH_BYTESIZE + 4)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
-        // We can specify length of pin, for now we can just compute it using the data length and hash length
+        // Pin length is fixed at 4 bytes (as assured above), but left this in just in case we might change it
         short pinSize = (short) (dataLength-HASH_BYTESIZE);
 
         // Check if received hashed pin equals actual hashed credit
@@ -452,9 +442,6 @@ public class RationingApplet extends Applet implements ISO7816 {
         cardPrivateKey.setModulus(buffer, (short) (OFFSET_CDATA + (short) (RSA_KEY_BYTESIZE / (short) 2)), (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE));
 
         pin.update(buffer, (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE), 4);
-        /*for (short i = 0; i < 4; i++) {
-            notepad[i] = buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + i)];
-        }*/
 
         for (short i = 0; i < 4; i++) {
             cardNumber[i] = buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + i + 4)];
