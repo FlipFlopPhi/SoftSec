@@ -23,6 +23,7 @@ public class RationingApplet extends Applet implements ISO7816 {
     private MessageDigest messageDigest;
     private RandomData rngesus;
     private byte cardNumber[];
+    private PIN pin;
     private byte creditOnCard[];
     private static short RSA_KEY_BYTESIZE = 128;
     private static short AES_KEY_BYTESIZE = 16; // 128/8
@@ -378,14 +379,14 @@ public class RationingApplet extends Applet implements ISO7816 {
         }
 
         // Check if received pin equals stored pin
-        for (byte i = 0; i<pinSize; i++){
-            if (pin[i] != buffer[(short) (OFFSET_CDATA + i)]){
-                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
-            }
+        // SUCCESS = 0, FAIL = 1, BLOCK = 2
+        if (pin.check(buffer, OFFSET_CDATA, pinSize)){
+            buffer[0] = (byte) 0;
+        } else {
+            buffer[0] = (pin.getTriesRemaining() == (byte) 0) ? (byte) 2 : (byte) 1;
         }
 
         // Set APDU to response
-        buffer[0] = (byte) 1;
         short returnLength = apdu.setOutgoing();
         if (returnLength != (short) 1) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
