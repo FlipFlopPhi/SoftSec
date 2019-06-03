@@ -22,7 +22,10 @@ public class ByteBuilder {
 	}
 
 	public ByteBuilder add(byte[] data) {
-		for(int i=0; i<data.length; i++,top++) {
+		return this.add(data, 0, data.length);
+	}
+	public ByteBuilder add(byte[] data, int from, int to) {
+		for(int i=from; i<data.length &i<to; i++,top++) {
 			array[top] = data[i];
 		}
 		return this;
@@ -42,5 +45,7 @@ public class ByteBuilder {
 	}
 	
 	public int getTop() {return top;}
+
+
 	
 }

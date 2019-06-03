@@ -50,9 +50,9 @@ public class Pumper extends TerminalWithPin {
 			for (int i=0;  i < transactionInfoHashed.length; i++)
 				msg[transactionInfo.length + i] = transactionInfoHashed[i];
 			byte[] certificate = Util.communicate(card, Step.Pump1, Util.encrypt(aesKey, "AES", msg)
-					,4 + Util.HASH_LENGTH + Integer.BYTES + Util.HASH_LENGTH);
+					,128);
 			byte[] decryptedCert = Util.decrypt(publicC, certificate);
-			if (!Arrays.equals(msg, decryptedCert))
+			if (!Arrays.equals(transactionInfo.array, decryptedCert))
 				throw new IncorrectCertificateException(msg, decryptedCert);
 			store(certificate);
 			dispenseFuel(DECREMENT_AMOUNT);

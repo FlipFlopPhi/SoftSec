@@ -27,6 +27,8 @@ import terminal.exception.IncorrectResponseCodeException;
 import terminal.exception.IncorrectSequenceNumberException;
 import terminal.util.ByteBuilder;
 import terminal.util.BytesHelper;
+import terminal.util.IncorrectAckException;
+import terminal.util.MismatchedHashException;
 import terminal.util.Triple;
 import terminal.util.Tuple;
 import terminal.util.Util;
@@ -95,7 +97,7 @@ public abstract class TerminalWithPin implements Pinnable {
 	}
 
 	public void initCommunications() throws CardException, IncorrectSequenceNumberException, GeneralSecurityException,
-			IncorrectResponseCodeException, CardBlockedException, IncorrectCertificateException {
+			IncorrectResponseCodeException, CardBlockedException, IncorrectCertificateException, IncorrectAckException, MismatchedHashException {
 		CardTerminal reader = TerminalFactory.getDefault().terminals().list().get(0);
 		Card card = reader.connect("*");
 		Triple<SecretKey, PublicKey, Integer> keys = Util.handSjaak(card, type, supportedCardVersions, certificateT,
