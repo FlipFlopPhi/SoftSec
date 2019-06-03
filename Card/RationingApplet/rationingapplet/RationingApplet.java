@@ -5,6 +5,7 @@ import javacard.security.*;
 import javacardx.crypto.*;
 
 import javax.smartcardio.CardException;
+import java.security.MessageDigest;
 
 public class RationingApplet extends Applet implements ISO7816 {
     // Data definitions
@@ -20,16 +21,17 @@ public class RationingApplet extends Applet implements ISO7816 {
     private byte cardCertificate[];
     private Cipher rSACipher;
     private Cipher aESCipher;
-    private MessageDigest messageDigest;
     private RandomData rngesus;
+    private MessageDigest hasher;
     private byte cardNumber[];
-    private PIN pin;
-    private byte creditOnCard[];
     private static short RSA_KEY_BYTESIZE = 128;
+    private static short RSA_KEY_MODULUSSIZE = 125;
+    private static short RSA_KEY_EXPONENTSIZE = 3;
     private static short AES_KEY_BYTESIZE = 16; // 128/8
-    private static short CERTIFICATE_BYTESIZE = 130;
-    private static short HASH_BYTESIZE = 16;
+    private static short CERTIFICATE_BYTESIZE = 256;
     private static short HANDSHAKE_ONE_INPUT_LENGTH_MIN = 135;
+    private static short NOTEPAD_SIZE = 512;
+    private static short HASH_SIZE = 16;
     private static byte VERSION_NUMBER = 1;
 
     public RationingApplet() {
@@ -37,8 +39,8 @@ public class RationingApplet extends Applet implements ISO7816 {
         //someData = new byte[10]; // persistent data, stays on the card between resets
         //someData = JCSystem.makeTransientByteArray((short) 10, JCSystem.CLEAR_ON_RESET); // transient data, is cleared when the card is removed from the terminal.
 
-        //260 bytes of memory that should be used as temporary storage of byte arrays instead of defining different arrays for every single thing.
-        notepad = JCSystem.makeTransientByteArray((short) 260, JCSystem.CLEAR_ON_RESET);
+        //300 bytes of memory that should be used as temporary storage of byte arrays instead of defining different arrays for every single thing.
+        notepad = JCSystem.makeTransientByteArray((short) NOTEPAD_SIZE, JCSystem.CLEAR_ON_RESET);
 
         //TODO get all the upcoming variables from personalizing
         masterKey = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_1024, false);
@@ -47,16 +49,16 @@ public class RationingApplet extends Applet implements ISO7816 {
         cardPrivateKey = (RSAPrivateKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PRIVATE, KeyBuilder.LENGTH_RSA_1024, false);
 //        cardPrivateKey.setExponent(buffer, offset, length);
 //        cardPrivateKey.setModulus(buffer, offset, length);
-        cardCertificate = new byte[130];
+        cardCertificate = new byte[CERTIFICATE_BYTESIZE];
         cardNumber = new byte[4];
 
-        // Max tries = 3, max size = 4
-        pin = new OwnerPin((byte) 3, (byte) 4);
 
         rSACipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
         //AES algorithm:
 
         rngesus = RandomData.getInstance(RandomData.ALG_SECURE_RANDOM);
+
+        hasher = MessageDigest.getInstance(MessageDigest.ALG_MD5, false);
 
         oldState = JCSystem.makeTransientShortArray((short) 1, JCSystem.CLEAR_ON_RESET);
         sequenceNumber = JCSystem.makeTransientShortArray((short) 2, JCSystem.CLEAR_ON_RESET); // The sequence number and how much is added per increment.
@@ -65,13 +67,10 @@ public class RationingApplet extends Applet implements ISO7816 {
         terminalType = JCSystem.makeTransientByteArray((short) 1, JCSystem.CLEAR_ON_RESET);
         terminalPublicKey = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_1024, false);
 
-        // Handshake step 3
-        symmetricKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_RESET, KeyBuilder.LENGTH_AES_128, false);
+		// Handshake step 3
+		symmetricKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_RESET, KeyBuilder.LENGTH_AES_128, false);
 
-        // Hashing
-        messageDigest = MessageDigest.getInstance(MessageDigest.ALG_MD5,false);
-
-        // Finally, register the applet.
+		// Finally, register the applet.
         register();
     }
 
@@ -248,7 +247,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         // Check if the list of supported versions includes our version.
         //TODO remove this check, let the terminal do this
         boolean supported = false;
-        for (byte i = OFFSET_CDATA+2; i < terminalSupportedVersionsLength; i++) {
+        for (byte i = OFFSET_CDATA + 2; i < terminalSupportedVersionsLength; i++) {
             if (buffer[i] == VERSION_NUMBER) {
                 supported = true;
             }
@@ -260,16 +259,52 @@ public class RationingApplet extends Applet implements ISO7816 {
         sequenceNumber[0] = Util.makeShort(buffer[(short) (OFFSET_CDATA + terminalSupportedVersionsLength + (short) 2)],
                 buffer[(short) (OFFSET_CDATA + terminalSupportedVersionsLength + (short) 3)]);
 
-        for (short i = 0; i < CERTIFICATE_BYTESIZE; i++) {
+        for (short i = 0; i < (short) (CERTIFICATE_BYTESIZE / (short) 4); i++) {
             notepad[i] = buffer[(short) (i + OFFSET_CDATA + terminalSupportedVersionsLength + (short) 4)];
         }
+
+        // Send acknowledgement (1)
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) 1) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
+
+        buffer[0] = 1;
+        apdu.sendBytes((short) 0, returnLength);
+    }
+
+
+    public void handshakeStepOnePrime(APDU apdu, byte dataLength ) {
+        byte[] buffer = apdu.getBuffer();
+
+        //Read the remainder of the certificate
+        for (short i = (short) (CERTIFICATE_BYTESIZE / (short) 4); i < CERTIFICATE_BYTESIZE; i++) {
+            notepad[i] = buffer[(short) (i + OFFSET_CDATA)];
+        }
+
 
         // Decrypt the certificate with the master key.
         rSACipher.init(masterKey, Cipher.MODE_DECRYPT);
         rSACipher.doFinal(notepad, (short) 0, CERTIFICATE_BYTESIZE, notepad, CERTIFICATE_BYTESIZE);
 
-        terminalPublicKey.setExponent(notepad, (short) 130, (short) (RSA_KEY_BYTESIZE / (short) 2));
-        terminalPublicKey.setModulus(notepad, (short) ((short) 130 + (RSA_KEY_BYTESIZE/(short)2)), (short) (RSA_KEY_BYTESIZE / (short) 2));
+        // Hash the decrypted public key and expiration date
+        short hashLength = hasher.doFinal(notepad, CERTIFICATE_BYTESIZE, (short) (RSA_KEY_BYTESIZE + (short) 4), notepad, 0);
+
+        if (hashLength != HASH_SIZE) {
+            CryptoException.throwIt(CryptoException.ILLEGAL_USE);
+        }
+
+        // Compare the calculated hash with the decrypted hash
+        for (short i = 0; i < HASH_SIZE; i++) {
+            if (notepad[i] != notepad[(short) (i + CERTIFICATE_BYTESIZE + RSA_KEY_BYTESIZE + 4)]) {
+                ISOException.throwIt(ISO7816.SW_SECURE_MESSAGING_NOT_SUPPORTED);
+            }
+        }
+
+        terminalPublicKey.setExponent(notepad, CERTIFICATE_BYTESIZE, RSA_KEY_EXPONENTSIZE);
+        terminalPublicKey.setModulus(notepad, (short) (CERTIFICATE_BYTESIZE + RSA_KEY_EXPONENTSIZE), RSA_KEY_MODULUSSIZE);
+
 
         // Start building the response
         // Set APDU to response
@@ -298,21 +333,50 @@ public class RationingApplet extends Applet implements ISO7816 {
         buffer[5] = notepad[2];
         buffer[6] = notepad[3];
 
-        for (short i = 0; i < CERTIFICATE_BYTESIZE; i++) {
+        // Add the first 64 bytes of the certificate.
+        for (short i = 0; i < (short) (CERTIFICATE_BYTESIZE/4); i++) {
             buffer[(short) (i + 7)] = cardCertificate[i];
         }
 
         apdu.sendBytes((short) 0, returnLength);
     }
 
-    private void handshakeStepThree (APDU apdu, byte dataLength) {
+    private void handshakeStepOnePrimePrime(APDU apdu, byte dataLength) {
         byte[] buffer = apdu.getBuffer();
 
-        if (dataLength != (short) (AES_KEY_BYTESIZE + 2)) {
+        if (dataLength != 1 || buffer[OFFSET_CDATA] != 1) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
-        // Decrypt using private key and public terminal key
+        // Set apdu to response
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) (CERTIFICATE_BYTESIZE * 0.75)) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
+
+        // Add the remainder of the certificate
+        for (short i = 0; i < (short) (CERTIFICATE_BYTESIZE * (short) 0.75); i++) {
+            buffer[i] = cardCertificate[(short) (i + CERTIFICATE_BYTESIZE*0.25)];
+        }
+
+        apdu.sendBytes((short) 0, returnLength);
+    }
+
+    private void handshakeStepThree (APDU apdu, byte dataLength) {
+        // In this step the card receives a symmetric key and a sequence number + a random increment * 2.
+        // The symmetric key is generated so all communication between card and terminal remains confidential.
+        // To let the card know about this key, it is paired with the incremented sequence number (seq. nr. + 3*increment)
+        // and encrypted with the private terminal key and the public card key, and sent to the card.
+        // Upon receiving this, the card should decrypt it using their own private key and the public terminal key.
+
+        // RECEIVED MESSAGE
+		byte[] buffer = apdu.getBuffer();
+		if (dataLength != (short) (AES_KEY_BYTESIZE + 2)) {
+			ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+		}
+        // 1. Decrypt using private key and public terminal key
+
         for (byte i = 0; i<(short) (AES_KEY_BYTESIZE+2); i++){
             notepad[i] = buffer[OFFSET_CDATA+2];
         }
@@ -323,22 +387,24 @@ public class RationingApplet extends Applet implements ISO7816 {
         rSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
         rSACipher.doFinal(notepad,(short)0,(short) (AES_KEY_BYTESIZE+2), notepad, (short) (AES_KEY_BYTESIZE+2));
 
-        // Check if sequence number is correct
+        // 2. Check sequence number (given that randIncr is stored)
         short receivedSequence = Util.makeShort(notepad[AES_KEY_BYTESIZE], notepad[(short) (AES_KEY_BYTESIZE+1)]);
 
         if (receivedSequence != (short) ((short) (sequenceNumber[0] + 2*sequenceNumber[1])%(short) (2^15))){
             ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
         }
 
-        // Store symmetric key
-        symmetricKey.setKey(notepad, (short) 0);
+        // 3. Store symmetric key
+		symmetricKey.setKey(notepad, (short) 0);
 
-        // Prepare response; card will respond with a symmetric encrypted (aesKey) OK in handshake step four
+        // PREPARE RESPONSE
         short returnLength = apdu.setOutgoing();
         if (returnLength != (short) ((short) 7 + CERTIFICATE_BYTESIZE)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
         apdu.setOutgoingLength(returnLength);
+
+        // The card will respond with a symmetric encrypted (aesKey) OK in handshake step four.
 
         short incremented = (short) ((short) (sequenceNumber[0] + 3*sequenceNumber[1])%(short) (2^15));
         Util.setShort(buffer,(short)0,incremented);
@@ -347,78 +413,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         aESCipher.doFinal(buffer, (short) 0, (short) 2, buffer, (short) 0);
         
         // Set APDU to response
-        apdu.sendBytes((short) 0, returnLength);
-    }
-
-    private void pinStep (APDU apdu, byte dataLength) {
-        byte[] buffer = apdu.getBuffer();
-
-        // Check if message has size of hash + pin
-        if (dataLength != (short) (HASH_BYTESIZE + 4)) {
-            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-        }
-
-        // Pin length is fixed at 4 bytes (as assured above), but left this in just in case we might change it
-        short pinSize = (short) (dataLength-HASH_BYTESIZE);
-
-        // Check if received hashed pin equals actual hashed credit
-        messageDigest.doFinal(buffer, (short) OFFSET_CDATA, pinSize, notepad, (short) 0);
-
-        for (byte i = 0; i<HASH_BYTESIZE; i++){
-            if (notepad[i] != buffer[(short) (OFFSET_CDATA + pinSize + i)]){
-                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
-            }
-        }
-
-        // Check if received pin equals stored pin
-        // SUCCESS = 0, FAIL = 1, BLOCK = 2
-        if (pin.check(buffer, OFFSET_CDATA, pinSize)){
-            buffer[0] = (byte) 0;
-        } else {
-            buffer[0] = (pin.getTriesRemaining() == (byte) 0) ? (byte) 2 : (byte) 1;
-        }
-
-        // Set APDU to response
-        short returnLength = apdu.setOutgoing();
-        if (returnLength != (short) 1) {
-            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-        }
-        apdu.setOutgoingLength(returnLength);
-        apdu.sendBytes((short) 0, returnLength);
-    }
-
-    private void chargeStep (APDU apdu, byte dataLength) {
-        byte[] buffer = apdu.getBuffer();
-
-        // Check if message is minimum length of hash size + 1
-        if (dataLength < (short) (HASH_BYTESIZE + 1)) {
-            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-        }
-
-        short creditSize = (short) (dataLength-HASH_BYTESIZE);
-
-        // Check if received hashed credit equals actual hashed credit
-        messageDigest.doFinal(buffer, (short) OFFSET_CDATA, creditSize, notepad, (short) 0);
-
-        for (byte i = 0; i<HASH_BYTESIZE; i++){
-            if (notepad[i] != buffer[(short) (OFFSET_CDATA + creditSize + i)]){
-                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
-            }
-        }
-
-        // Store new credit value
-        for (byte i = 0; i<creditSize; i++){
-            creditOnCard[i] = buffer[(short) (OFFSET_CDATA + i)];
-        }
-
-        // Set APDU to response
-        buffer[0] = (byte) 1;
-        short returnLength = apdu.setOutgoing();
-        if (returnLength != (short) 1) {
-            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-        }
-        apdu.setOutgoingLength(returnLength);
-        apdu.sendBytes((short) 0, returnLength);
+		apdu.sendBytes((short) 0, returnLength);
     }
 
     private void pumpStepOne (APDU apdu, byte dataLength) {
@@ -438,10 +433,13 @@ public class RationingApplet extends Applet implements ISO7816 {
     private void personalizeStepOne (APDU apdu, byte dataLength) {
         byte[] buffer = apdu.getBuffer();
         // Private key (128 bytes), Pin (4 bytes), Cardnumber (4 bytes)
-        cardPrivateKey.setExponent(buffer, OFFSET_CDATA, (short) (RSA_KEY_BYTESIZE / (short) 2));
-        cardPrivateKey.setModulus(buffer, (short) (OFFSET_CDATA + (short) (RSA_KEY_BYTESIZE / (short) 2)), (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE));
+        cardPrivateKey.setExponent(buffer, OFFSET_CDATA, RSA_KEY_EXPONENTSIZE);
+        cardPrivateKey.setModulus(buffer, (short) (OFFSET_CDATA + RSA_KEY_EXPONENTSIZE), RSA_KEY_MODULUSSIZE);
 
-        pin.update(buffer, (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE), 4);
+        //TODO actually configure the PIN here.
+        for (short i = 0; i < 4; i++) {
+            notepad[i] = buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + i)];
+        }
 
         for (short i = 0; i < 4; i++) {
             cardNumber[i] = buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + i + 4)];
@@ -460,9 +458,13 @@ public class RationingApplet extends Applet implements ISO7816 {
     private void personalizeStepTwo (APDU apdu, byte dataLength) {
         byte[] buffer = apdu.getBuffer();
         // Master key (128 bytes)
-        masterKey.setExponent(buffer, OFFSET_CDATA, (short) (RSA_KEY_BYTESIZE / (short) 2));
-        masterKey.setModulus(buffer, (short) (OFFSET_CDATA + (short) (RSA_KEY_BYTESIZE / (short) 2)), (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE));
+        masterKey.setExponent(buffer, OFFSET_CDATA, RSA_KEY_EXPONENTSIZE);
+        masterKey.setModulus(buffer, (short) (OFFSET_CDATA + RSA_KEY_EXPONENTSIZE), RSA_KEY_MODULUSSIZE);
 
+        // Partial certificate (64 bytes)
+        for (short i = 0; i < (short) (CERTIFICATE_BYTESIZE * (short) 0.25); i++) {
+            cardCertificate[i] = buffer[(short) (OFFSET_CDATA + i + RSA_KEY_BYTESIZE)];
+        }
 
         // Response (1 byte)
         short returnLength = apdu.setOutgoing();
@@ -476,9 +478,9 @@ public class RationingApplet extends Applet implements ISO7816 {
 
     private void personalizeStepThree (APDU apdu, byte dataLength) {
         byte[] buffer = apdu.getBuffer();
-        // Certificate (130 byte)
-        for (short i = 0; i < CERTIFICATE_BYTESIZE; i++) {
-            cardCertificate[i] = buffer[(short) (OFFSET_CDATA + i)];
+        // Partial Certificate (192 bytes)
+        for (short i = (short) (CERTIFICATE_BYTESIZE * (short) 0.25); i < CERTIFICATE_BYTESIZE; i++) {
+            cardCertificate[i] = buffer[(short) (OFFSET_CDATA + i + RSA_KEY_BYTESIZE)];
         }
 
         // Response (1 byte)
