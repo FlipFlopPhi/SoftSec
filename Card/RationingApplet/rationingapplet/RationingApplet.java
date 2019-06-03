@@ -23,6 +23,7 @@ public class RationingApplet extends Applet implements ISO7816 {
     private MessageDigest messageDigest;
     private RandomData rngesus;
     private byte cardNumber[];
+    private PIN pin;
     private byte creditOnCard[];
     private static short RSA_KEY_BYTESIZE = 128;
     private static short AES_KEY_BYTESIZE = 16; // 128/8
@@ -49,6 +50,8 @@ public class RationingApplet extends Applet implements ISO7816 {
         cardCertificate = new byte[130];
         cardNumber = new byte[4];
 
+        // Max tries = 3, max size = 4
+        pin = new OwnerPin((byte) 3, (byte) 4);
 
         rSACipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
         //AES algorithm:
@@ -355,6 +358,79 @@ public class RationingApplet extends Applet implements ISO7816 {
 		apdu.sendBytes((short) 0, returnLength);
     }
 
+    private void pinStep (APDU apdu, byte dataLength) {
+        // TODO: Set pin
+
+        byte[] buffer = apdu.getBuffer();
+
+        // Check if message is minimum length of hash size + minimum pin size
+        if (dataLength != (short) (HASH_BYTESIZE + 4)) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+
+        // We can specify length of pin, for now we can just compute it using the data length and hash length
+        short pinSize = (short) (dataLength-HASH_BYTESIZE);
+
+        // Check if received hashed pin equals actual hashed credit
+        messageDigest.doFinal(buffer, (short) OFFSET_CDATA, pinSize, notepad, (short) 0);
+
+        for (byte i = 0; i<HASH_BYTESIZE; i++){
+            if (notepad[i] != buffer[(short) (OFFSET_CDATA + pinSize + i)]){
+                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+            }
+        }
+
+        // Check if received pin equals stored pin
+        // SUCCESS = 0, FAIL = 1, BLOCK = 2
+        if (pin.check(buffer, OFFSET_CDATA, pinSize)){
+            buffer[0] = (byte) 0;
+        } else {
+            buffer[0] = (pin.getTriesRemaining() == (byte) 0) ? (byte) 2 : (byte) 1;
+        }
+
+        // Set APDU to response
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) 1) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
+        apdu.sendBytes((short) 0, returnLength);
+    }
+
+    private void chargeStep (APDU apdu, byte dataLength) {
+        byte[] buffer = apdu.getBuffer();
+
+        // Check if message is minimum length of hash size + 1
+        if (dataLength < (short) (HASH_BYTESIZE + 1)) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+
+        short creditSize = (short) (dataLength-HASH_BYTESIZE);
+
+        // Check if received hashed credit equals actual hashed credit
+        messageDigest.doFinal(buffer, (short) OFFSET_CDATA, creditSize, notepad, (short) 0);
+
+        for (byte i = 0; i<HASH_BYTESIZE; i++){
+            if (notepad[i] != buffer[(short) (OFFSET_CDATA + creditSize + i)]){
+                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+            }
+        }
+
+        // Store new credit value
+        for (byte i = 0; i<creditSize; i++){
+            creditOnCard[i] = buffer[(short) (OFFSET_CDATA + i)];
+        }
+
+        // Set APDU to response
+        buffer[0] = (byte) 1;
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) 1) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
+        apdu.sendBytes((short) 0, returnLength);
+    }
+
     private void pumpStepOne (APDU apdu, byte dataLength) {
         // Incoming: Transaction info -> (saldoChange, currentDate, terminalNumber, cardNumber)
         // encrypted with the privateT-key,
@@ -375,10 +451,10 @@ public class RationingApplet extends Applet implements ISO7816 {
         cardPrivateKey.setExponent(buffer, OFFSET_CDATA, (short) (RSA_KEY_BYTESIZE / (short) 2));
         cardPrivateKey.setModulus(buffer, (short) (OFFSET_CDATA + (short) (RSA_KEY_BYTESIZE / (short) 2)), (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE));
 
-        //TODO actually configure the PIN here.
-        for (short i = 0; i < 4; i++) {
+        pin.update(buffer, (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE), 4);
+        /*for (short i = 0; i < 4; i++) {
             notepad[i] = buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + i)];
-        }
+        }*/
 
         for (short i = 0; i < 4; i++) {
             cardNumber[i] = buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + i + 4)];
@@ -425,40 +501,6 @@ public class RationingApplet extends Applet implements ISO7816 {
         }
         apdu.setOutgoingLength(returnLength);
         buffer[0] = (byte) 1;
-        apdu.sendBytes((short) 0, returnLength);
-    }
-
-    private void chargeStep (APDU apdu, byte dataLength) {
-        byte[] buffer = apdu.getBuffer();
-
-        // Check if message is minimum length of hash size + 1
-        if (dataLength < (short) (HASH_BYTESIZE + 1)) {
-            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-        }
-
-        short creditSize = (short) (dataLength-OFFSET_CDATA-HASH_BYTESIZE);
-
-        // Check if received hashed credit equals actual hashed credit
-        messageDigest.doFinal(buffer, (short) OFFSET_CDATA, creditSize, notepad, (short) 0);
-
-        for (byte i = 0; i<HASH_BYTESIZE; i++){
-            if (notepad[i] != buffer[(short) (OFFSET_CDATA + creditSize + i)]){
-                ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-            }
-        }
-
-        // Store new credit value
-        for (byte i = 0; i<creditSize; i++){
-            creditOnCard[i] = buffer[(short) (OFFSET_CDATA + i)];
-        }
-
-        // Set APDU to response
-        buffer[0] = (byte) 1;
-        short returnLength = apdu.setOutgoing();
-        if (returnLength != (short) 1) {
-            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-        }
-        apdu.setOutgoingLength(returnLength);
         apdu.sendBytes((short) 0, returnLength);
     }
 
