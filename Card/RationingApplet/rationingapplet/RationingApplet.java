@@ -356,7 +356,42 @@ public class RationingApplet extends Applet implements ISO7816 {
     }
 
     private void pinStep (APDU apdu, byte dataLength) {
-        
+        // TODO: Set pin
+
+        byte[] buffer = apdu.getBuffer();
+
+        // Check if message is minimum length of hash size + minimum pin size
+        if (dataLength < (short) (HASH_BYTESIZE + 4)) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+
+        // We can specify length of pin, for now we can just compute it using the data length and hash length
+        short pinSize = (short) (dataLength-OFFSET_CDATA-HASH_BYTESIZE);
+
+        // Check if received hashed pin equals actual hashed credit
+        messageDigest.doFinal(buffer, (short) OFFSET_CDATA, pinSize, notepad, (short) 0);
+
+        for (byte i = 0; i<HASH_BYTESIZE; i++){
+            if (notepad[i] != buffer[(short) (OFFSET_CDATA + pinSize + i)]){
+                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+            }
+        }
+
+        // Check if received pin equals stored pin
+        for (byte i = 0; i<pinSize; i++){
+            if (pin[i] != buffer[(short) (OFFSET_CDATA + i)]){
+                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+            }
+        }
+
+        // Set APDU to response
+        buffer[0] = (byte) 1;
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) 1) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
+        apdu.sendBytes((short) 0, returnLength);
     }
 
     private void chargeStep (APDU apdu, byte dataLength) {
@@ -374,7 +409,7 @@ public class RationingApplet extends Applet implements ISO7816 {
 
         for (byte i = 0; i<HASH_BYTESIZE; i++){
             if (notepad[i] != buffer[(short) (OFFSET_CDATA + creditSize + i)]){
-                ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
             }
         }
 
