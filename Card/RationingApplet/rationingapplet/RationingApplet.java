@@ -50,6 +50,8 @@ public class RationingApplet extends Applet implements ISO7816 {
         cardCertificate = new byte[130];
         cardNumber = new byte[4];
 
+        // Max tries = 3, max size = 4
+        pin = new OwnerPin((byte) 3, (byte) 4);
 
         rSACipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
         //AES algorithm:
@@ -362,12 +364,12 @@ public class RationingApplet extends Applet implements ISO7816 {
         byte[] buffer = apdu.getBuffer();
 
         // Check if message is minimum length of hash size + minimum pin size
-        if (dataLength < (short) (HASH_BYTESIZE + 4)) {
+        if (dataLength != (short) (HASH_BYTESIZE + 4)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
         // We can specify length of pin, for now we can just compute it using the data length and hash length
-        short pinSize = (short) (dataLength-OFFSET_CDATA-HASH_BYTESIZE);
+        short pinSize = (short) (dataLength-HASH_BYTESIZE);
 
         // Check if received hashed pin equals actual hashed credit
         messageDigest.doFinal(buffer, (short) OFFSET_CDATA, pinSize, notepad, (short) 0);
@@ -403,7 +405,7 @@ public class RationingApplet extends Applet implements ISO7816 {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
-        short creditSize = (short) (dataLength-OFFSET_CDATA-HASH_BYTESIZE);
+        short creditSize = (short) (dataLength-HASH_BYTESIZE);
 
         // Check if received hashed credit equals actual hashed credit
         messageDigest.doFinal(buffer, (short) OFFSET_CDATA, creditSize, notepad, (short) 0);
@@ -449,10 +451,10 @@ public class RationingApplet extends Applet implements ISO7816 {
         cardPrivateKey.setExponent(buffer, OFFSET_CDATA, (short) (RSA_KEY_BYTESIZE / (short) 2));
         cardPrivateKey.setModulus(buffer, (short) (OFFSET_CDATA + (short) (RSA_KEY_BYTESIZE / (short) 2)), (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE));
 
-        //TODO actually configure the PIN here.
-        for (short i = 0; i < 4; i++) {
+        pin.update(buffer, (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE), 4);
+        /*for (short i = 0; i < 4; i++) {
             notepad[i] = buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + i)];
-        }
+        }*/
 
         for (short i = 0; i < 4; i++) {
             cardNumber[i] = buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + i + 4)];
