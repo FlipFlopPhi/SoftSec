@@ -200,14 +200,42 @@ public final class Util {
 		}
 	}
 
+	public static void printAPDU (CommandAPDU apdu) {
+		String response = "C: L:" + apdu.getBytes().length + " ";
+		for (byte b : apdu.getBytes()) {
+			response += String.format("%02x,",b);
+		}
+		System.out.println(response);
+	}
+
+	public static void printAPDU (ResponseAPDU apdu) {
+		String response = "R: L:" + apdu.getBytes().length + " ";
+		for (byte b : apdu.getBytes()) {
+			response += String.format("%02x,",b);
+		}
+		System.out.println(response);
+	}
+
 	public static byte[] communicate(Card card, Step step, byte[] message, int responseLength) throws CardException {
 		CardChannel channel = card.getBasicChannel();
-		ResponseAPDU response = channel
-				.transmit(new CommandAPDU(0xD0, 0, step.P1, step.P2, message, message.length, responseLength));
+		byte[] APP_ID = {(byte) 0x12, (byte) 0x34, (byte) 0x56, (byte) 0x78, (byte) 0x90, (byte) 0xab, };
+		ResponseAPDU response = channel.transmit(new CommandAPDU((byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, APP_ID));
+
+		/*
+		byte[] test= {0x04, 0x03, 0x02, 0x01};
+		printAPDU(new CommandAPDU(0xD0, 0, step.P1, 25, test, 4));
+		response = channel.transmit(new CommandAPDU(0xD0, 0, step.P1, 25, test, 4));
+		printAPDU(response);
+		*/
+
+		printAPDU(new CommandAPDU(0xD0, (byte) 0, step.P1, step.P2, message, responseLength));
+		response = channel
+				.transmit(new CommandAPDU(0xD0, (byte) 0, step.P1, step.P2, message, responseLength));
+		printAPDU(response);
 		int sw1 = response.getSW1();
-		if (sw1 == 0x61 | sw1 == 90)
+		if (sw1 == 0x61 | sw1 == 0x90)
 			return response.getData();
-		throw new CardException("Response Error returned" + response.getSW());
+		throw new CardException("Response Error returned" + response.getSW1() + "," + response.getSW2());
 	}
 
 	/**
