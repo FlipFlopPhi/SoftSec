@@ -3,6 +3,8 @@
  */
 package terminal.util;
 
+import java.math.BigInteger;
+import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.Arrays;
 
@@ -45,6 +47,11 @@ public class ByteBuilder {
 	}
 	
 	public int getTop() {return top;}
+
+	public ByteBuilder addPrivateRSAKey(RSAPrivateKey rsaPrivateKey) {
+		return this.add(Arrays.copyOf(rsaPrivateKey.getModulus().toByteArray(), 128))
+				.add(rsaPrivateKey.getPrivateExponent().toByteArray());
+	}
 
 
 	

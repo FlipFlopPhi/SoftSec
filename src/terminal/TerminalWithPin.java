@@ -21,6 +21,7 @@ import javax.smartcardio.CardTerminal;
 import javax.smartcardio.TerminalFactory;
 
 import terminal.exception.CardBlockedException;
+import terminal.exception.CertificateGenerationException;
 import terminal.exception.IncorrectCertificateException;
 import terminal.exception.IncorrectResponseCodeException;
 import terminal.exception.IncorrectSequenceNumberException;
@@ -43,7 +44,7 @@ public abstract class TerminalWithPin implements Pinnable {
 
 	public final TerminalType type;
 
-	public TerminalWithPin(TerminalType type) throws NoSuchAlgorithmException, InvalidAlgorithmParameterException {
+	public TerminalWithPin(TerminalType type) throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, CertificateGenerationException {
 		this.type = type;
 
 		KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
@@ -58,7 +59,11 @@ public abstract class TerminalWithPin implements Pinnable {
 		Calendar date = Calendar.getInstance();
 		date.add(Calendar.YEAR, 5);
 		certificateBuilder.add(BytesHelper.fromDate(date));
-		certificateT = BackEnd.getInstance().requestMasterEncryption(certificateBuilder.array);
+		try {
+			certificateT = BackEnd.getInstance().requestMasterEncryption(certificateBuilder.array);
+		} catch (GeneralSecurityException e) {
+			throw new CertificateGenerationException();
+		}
 
 		publicM = BackEnd.getInstance().getPublicMasterKey();
 		terminalNumber = 0;// TODO get the terminalNumber from the backend or somewhere else

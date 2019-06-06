@@ -4,16 +4,21 @@ public class Account {
 
 	static final Account testAccount = new Account();
 
-	public void decreaseBy(byte[] amountRequested) {
-		// TODO Auto-generated method stub
-		
+	private int credit = 300;
+
+	public Account() {
 	}
 
-	public void increaseBy(byte[] amountRequested) {
-		// TODO Auto-generated method stub
-		
+	public void decreaseBy(int amountRequested) {
+		credit -= amountRequested;
 	}
 
-	
-	
+	public void increaseBy(int amountRequested) {
+		credit += amountRequested;
+	}
+
+	public int getCreditStored() {
+		return credit;
+	}
+
 }
