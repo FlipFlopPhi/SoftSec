@@ -9,7 +9,6 @@ import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.interfaces.RSAKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.RSAKeyGenParameterSpec;
 import java.util.Calendar;
@@ -30,7 +29,6 @@ import terminal.util.BytesHelper;
 import terminal.util.IncorrectAckException;
 import terminal.util.MismatchedHashException;
 import terminal.util.Triple;
-import terminal.util.Tuple;
 import terminal.util.Util;
 
 public abstract class TerminalWithPin implements Pinnable {

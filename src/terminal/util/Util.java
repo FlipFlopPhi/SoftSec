@@ -4,8 +4,6 @@
 package terminal.util;
 
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
 import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyFactory;
@@ -13,7 +11,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.interfaces.RSAPublicKey;
 import java.security.spec.RSAPublicKeySpec;
 import java.util.Arrays;
 
@@ -22,7 +19,6 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.smartcardio.*;
 
-import terminal.BackEnd;
 import terminal.InvalidPinException;
 import terminal.Pinnable;
 import terminal.Step;
