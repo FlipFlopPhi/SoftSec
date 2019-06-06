@@ -12,6 +12,7 @@ import javax.crypto.SecretKey;
 import javax.smartcardio.Card;
 import javax.smartcardio.CardException;
 
+import terminal.exception.CertificateGenerationException;
 import terminal.exception.IncorrectCertificateException;
 import terminal.exception.IncorrectResponseCodeException;
 import terminal.util.ByteBuilder;
@@ -26,7 +27,7 @@ public class Pumper extends TerminalWithPin {
 
 	public final static int DECREMENT_AMOUNT = 3;
 
-	public Pumper() throws NoSuchAlgorithmException, InvalidAlgorithmParameterException {
+	public Pumper() throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, CertificateGenerationException {
 		super(TerminalType.PUMP);
 	}
 

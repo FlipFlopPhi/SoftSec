@@ -131,7 +131,6 @@ public final class Util {
 				throw new IncorrectSequenceNumberException();
 			return new Triple<SecretKey, PublicKey, Integer>(aesKey, publicC, Integer.valueOf(cardNumber));
 		} catch (CardException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 			throw e;
 		}

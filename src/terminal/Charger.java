@@ -8,11 +8,13 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.Arrays;
+import java.util.Scanner;
 
 import javax.crypto.SecretKey;
 import javax.smartcardio.Card;
 import javax.smartcardio.CardException;
 
+import terminal.exception.CertificateGenerationException;
 import terminal.exception.IncorrectResponseCodeException;
 import terminal.util.BytesHelper;
 import terminal.util.Util;
@@ -23,19 +25,20 @@ import terminal.util.Util;
  */
 public class Charger extends TerminalWithPin {
 
-	public final static int MAXIMUM_ALLOWED_CREDIT_STORED = 300_00;
+	public final static int MAXIMUM_ALLOWED_CREDIT_STORED = 300_00;//Maximum allowed credit to be stored on card in cents
 	public final static byte TRANSFER_SUCCESSFUL = 1;
 	
-	public Charger() throws NoSuchAlgorithmException, InvalidAlgorithmParameterException {
+	public Charger() throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, CertificateGenerationException {
 		super(TerminalType.CHARGER);
 	}
 
 	@Override
 	protected void restOfTheCard(Card card, SecretKey aesKey, PublicKey publicC, int cardNumber, byte[] bs) throws CardException, GeneralSecurityException, IncorrectResponseCodeException {
 		int amountOnCard = BytesHelper.toInt(bs);
-		byte[] amountRequested = getRequestedAmount(amountOnCard);
-		byte[] requestMsg = Arrays.copyOf(amountRequested, Integer.BYTES+Util.HASH_LENGTH);
-		byte[] hash = Util.hash(amountRequested);
+		Account cardholder = BackEnd.getInstance().getAccount(cardNumber);
+		int amountRequested = getRequestedAmount(amountOnCard, cardholder);
+		byte[] requestMsg = Arrays.copyOf(BytesHelper.fromInt(amountRequested), Integer.BYTES+Util.HASH_LENGTH);
+		byte[] hash = Util.hash(BytesHelper.fromInt(amountRequested));
 		for(int i=0; i<hash.length; i++)
 			requestMsg[Integer.BYTES + i] = hash[i];
 		Account.testAccount.decreaseBy(amountRequested);
@@ -50,9 +53,19 @@ public class Charger extends TerminalWithPin {
 	 * @param amountOnCard the amount on the 
 	 * @return
 	 */
-	private byte[] getRequestedAmount(int amountOnCard) {
-		// TODO Auto-generated method stub
-		return null;
+	private int getRequestedAmount(int amountOnCard, Account account) {
+		int max = Math.min(MAXIMUM_ALLOWED_CREDIT_STORED-amountOnCard,account.getCreditStored());
+		System.out.println("Please input the amount of credit [0,"+max+"] you want to move to your card.\n"
+				+"Amount stored on account = "+account.getCreditStored()+" Creds\n"
+				+"Amount stored on card = "+amountOnCard+" Creds");
+		Scanner scanner = new Scanner(System.in);
+		int userInput = scanner.nextInt();
+		while( userInput <0 || userInput > max) {
+			System.out.println("It seems you have entered an invalid amount. \n Please try again.");
+			userInput = scanner.nextInt();
+		}
+		scanner.close();
+		return userInput;
 	}
 
 	
