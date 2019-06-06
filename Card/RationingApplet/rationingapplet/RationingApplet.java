@@ -491,11 +491,37 @@ public class RationingApplet extends Applet implements ISO7816 {
         // The entire things is encrypted with the AES key
         byte[] buffer = apdu.getBuffer();
 
-        aESCipher.init();
+        short transactionSize = (short) (dataLength-HASH_SIZE);
+
+        // Decrypt transaction info
+        //aESCipher.init();
+
+        rSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
+        rSACipher.doFinal(buffer, OFFSET_CDATA, RSA_KEY_BYTESIZE, notepad, HASH_SIZE);
+
+        // Check if received hashed transaction equals actual hashed transaction
+        hasher.doFinal(notepad, HASH_SIZE, transactionSize, notepad, (short) 0);
+
+        for (byte i = 0; i<HASH_BYTESIZE; i++){
+            if (notepad[i] != buffer[(short) (OFFSET_CDATA + transactionSize + i)]){
+                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+            }
+        }
+
+        // TODO: Actually doing something with the transaction info
 
         // Outgoing: The original transaction info, encrypted with privateT, also encrypted with privateC
+        rSACipher.init(cardPrivateKey,Cipher.MODE_ENCRYPT);
+        rSACipher.doFinal(notepad, HASH_SIZE, transactionSize, buffer, (short) 0);
 
+        short returnLength = apdu.setOutgoing();
+        /*if (returnLength != (short) ((short) 7 + CERTIFICATE_BYTESIZE)) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }*/
+        apdu.setOutgoingLength(returnLength);
 
+        // Set APDU to response
+        apdu.sendBytes((short) 0, returnLength);
     }
 
     private void personalizeStepOne (APDU apdu, byte dataLength) {
