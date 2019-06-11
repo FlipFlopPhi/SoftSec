@@ -82,7 +82,7 @@ public final class Util {
 
 		// Generate the initial handshake message (The Hello)
 		ByteBuilder initMsg = new ByteBuilder(1 + 1 + versions.length + 2 + 128);
-		initMsg.add(type.getByte()).add(versions.length).add(versions).add(R).add(certificateT, 0, 128);
+		initMsg.add(type.getByte()).add((byte)versions.length).add(versions).add(R).add(certificateT, 0, 128);
 
 		// Start Communication
 		try {

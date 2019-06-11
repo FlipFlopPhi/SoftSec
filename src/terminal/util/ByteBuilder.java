@@ -40,6 +40,11 @@ public class ByteBuilder {
 	public ByteBuilder add(short value) {
 		return this.add(BytesHelper.fromShort(value));
 	}
+	
+	public ByteBuilder add(byte b) {
+		array[top++] = b;
+		return this;
+	}
 
 	public ByteBuilder addPublicRSAKey(RSAPublicKey rsaPublicKey) {
 		return this.add(Arrays.copyOf(rsaPublicKey.getModulus().toByteArray(),Util.MODULUS_LENGTH))

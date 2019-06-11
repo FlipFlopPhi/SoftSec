@@ -11,7 +11,7 @@ public enum Step {
 	,Personalize((short)8)
 	,Personalize2((short)9)
 	,Personalize3((short)10)
-	, Personalize4((short)8);
+	, Personalize4((short)11);
 	
 	
 	public final byte P1;
