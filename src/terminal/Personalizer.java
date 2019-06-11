@@ -14,6 +14,7 @@ import java.security.PublicKey;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.RSAKeyGenParameterSpec;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Scanner;
 import java.util.TimeZone;
@@ -65,31 +66,22 @@ public class Personalizer {
 				throw new FailedPersonalizationException("An error in the keyspecs has occured, please contact the developers.\n"+e1.getMessage());
 			}
 			KeyPair kp = generator.generateKeyPair();
-			PrivateKey privateC = kp.getPrivate();
-			ByteBuilder keyPinNr = new ByteBuilder(Util.KEY_LENGTH + Integer.BYTES + Integer.BYTES);
-			keyPinNr.addPrivateRSAKey((RSAPrivateKey) privateC).add(pin).add(cardNumber);
-			Util.communicate(card, Step.Personalize, keyPinNr.array, 1); 
+			byte[] privateC = BytesHelper.fromPrivateKey((RSAPrivateKey) kp.getPrivate());
+			Util.communicate(card, Step.Personalize, privateC, 1); 
 			
-			ByteBuilder publicM = new ByteBuilder(Util.KEY_LENGTH);
-			Util.communicate(card, Step.Personalize2
-					, publicM.addPublicRSAKey(BackEnd.getInstance().getPublicMasterKey()).array
-					, 1);
-			
-			PublicKey publicC = kp.getPublic();
-			Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-			calendar.add(Calendar.YEAR, 5);
-			ByteBuilder certificateInfo = new ByteBuilder(Util.KEY_LENGTH + 2);
-			certificateInfo.addPublicRSAKey((RSAPublicKey) publicC).add(BytesHelper.fromDate(calendar));
-			byte[] certificateC;
-			try {
-				certificateC = BackEnd.getInstance().requestMasterEncryption(certificateInfo.array);
+			byte[] certificateC; try {
+				certificateC = BackEnd.getInstance().requestCertificate((RSAPublicKey)kp.getPublic());
 			} catch (GeneralSecurityException e) {
 				throw new FailedPersonalizationException("Encrypting certificates using backEnd failed.");
 			}
+			ByteBuilder persT2 = new ByteBuilder(Util.MODULUS_LENGTH + 3 + 64 + Integer.BYTES + Integer.BYTES);
+			persT2.addPublicRSAKey(BackEnd.getInstance().getPublicMasterKey())
+				.add(Arrays.copyOf(certificateC, 64)).add(pin).add(cardNumber);
+			Util.communicate(card, Step.Personalize2, persT2.array, 1);
 			
-			Util.communicate(card, Step.Personalize3, certificateC, 1);
+			Util.communicate(card, Step.Personalize3, Arrays.copyOfRange(certificateC, 64, 256), 1);
 			
-			BackEnd.getInstance().storeCardInfo(cardNumber, publicC);//TODO integrate personal user information
+			BackEnd.getInstance().storeCardInfo(cardNumber, kp.getPublic());//TODO integrate personal user information
 		} catch (CardException e1) {
 			throw new FailedPersonalizationException("Could not connect with a card for personalization.");
 		}

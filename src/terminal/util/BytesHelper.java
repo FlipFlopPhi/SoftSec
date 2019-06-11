@@ -1,6 +1,8 @@
 package terminal.util;
 
 import java.nio.ByteBuffer;
+import java.security.PrivateKey;
+import java.security.interfaces.RSAPrivateKey;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.TimeZone;
@@ -59,6 +61,15 @@ public final class BytesHelper {
 
 	public static byte[] fromInt(int integer) {
 		return ByteBuffer.allocate(Integer.BYTES).putInt(integer).array();
+	}
+
+	public static byte[] fromPrivateKey(RSAPrivateKey privateKey) {
+		byte[] exponent = privateKey.getPrivateExponent().toByteArray();
+		byte[] key = Arrays.copyOf(privateKey.getModulus().toByteArray(),128+exponent.length);
+		for(int i=0; i<exponent.length; i++) {
+			key[128+i] = exponent[i];
+		}
+		return key;
 	}
 }
   

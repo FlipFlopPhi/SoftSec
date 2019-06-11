@@ -10,9 +10,14 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.interfaces.RSAPublicKey;
+import java.util.Arrays;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TimeZone;
 
+import terminal.util.ByteBuilder;
+import terminal.util.BytesHelper;
 import terminal.util.Util;
 
 /**
@@ -71,6 +76,22 @@ public class BackEnd {
 	
 	public Account getAccount(int cardNumber) {
 		return cardHolders.get(Integer.valueOf(cardNumber));
+	}
+
+	public byte[] requestCertificate(RSAPublicKey publicKey) throws GeneralSecurityException {
+		
+		Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+		calendar.add(Calendar.YEAR, 5);
+		byte[] date = BytesHelper.fromDate(calendar);
+		ByteBuilder hashInput = new ByteBuilder(128+3+2).addPublicRSAKey(publicKey).add(date);
+		byte[] hash = Util.hash(hashInput.array);
+		ByteBuilder certificate = new ByteBuilder(256);
+		certificate.add(requestMasterEncryption(Arrays.copyOf(certificate.array, 128)));
+		byte[] cert2 = Arrays.copyOfRange(certificate.array, 128, 128 + 3 + 2 + 16);
+		for(int i=0; i<16; i++)
+			cert2[3 + 2 + i] = hash[i];
+		certificate.add(requestMasterEncryption(cert2));
+		return certificate.array;
 	}
 	
 }
