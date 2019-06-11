@@ -10,7 +10,8 @@ public enum Step {
 	,Pump1((short)7)
 	,Personalize((short)8)
 	,Personalize2((short)9)
-	,Personalize3((short)10);
+	,Personalize3((short)10)
+	, Personalize4((short)8);
 	
 	
 	public final byte P1;
