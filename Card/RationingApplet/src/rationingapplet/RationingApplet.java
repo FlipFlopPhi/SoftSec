@@ -187,6 +187,11 @@ public class RationingApplet extends Applet implements ISO7816 {
                 personalizeStepThree(apdu, dataLength);
 
                 break;
+            case 11:
+            	if (oldState[0] != (short) 10) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);            		
+            	}
+            	personalizeStepFour(apdu, dataLength);
             case 25:
                 debugStep(apdu, dataLength);
                 terminalState = 0;
@@ -533,11 +538,8 @@ public class RationingApplet extends Applet implements ISO7816 {
 
     private void personalizeStepOne (APDU apdu, byte dataLength) {
         byte[] buffer = apdu.getBuffer();
-        // Modulus (128 bytes), Private Exponent (variable, max 127 bytes)
+        // Modulus (128 bytes)
         cardPrivateKey.setModulus(buffer, OFFSET_CDATA, RSA_KEY_MODULUSSIZE);
-        
-        short exponentLength = (short) dataLength - RSA_KEY_MODULUSSIZE;
-        cardPrivateKey.setModulus(buffer, (short) (OFFSET_CDATA + RSA_KEY_EXPONENTSIZE), exponentLength);
         
         
         // Response (1 byte)
@@ -553,6 +555,23 @@ public class RationingApplet extends Applet implements ISO7816 {
     }
 
     private void personalizeStepTwo (APDU apdu, byte dataLength) {
+    	byte[] buffer = apdu.getBuffer();
+    	// Private Exponent (variable, max 128 bytes)
+    	cardPrivateKey.setExponent(buffer, OFFSET_CDATA, (short) dataLength);
+    	
+    	// Response (1 byte)
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) 1) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
+        //Util.setShort(buffer, (short) 0, (short) (dataLength));//(byte) 1;
+        buffer[0] = 1;
+        apdu.sendBytes((short) 0, returnLength);
+        return;
+    }
+    
+    private void personalizeStepThree (APDU apdu, byte dataLength) {
         byte[] buffer = apdu.getBuffer();
         // Master key (128 bytes)
         masterKey.setExponent(buffer, OFFSET_CDATA, RSA_KEY_EXPONENTSIZE);
@@ -580,7 +599,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         apdu.sendBytes((short) 0, returnLength);
     }
 
-    private void personalizeStepThree (APDU apdu, byte dataLength) {
+    private void personalizeStepFour (APDU apdu, byte dataLength) {
         byte[] buffer = apdu.getBuffer();
         // Partial Certificate (192 bytes)
         for (short i = (short) (CERTIFICATE_BYTESIZE / 4); i < CERTIFICATE_BYTESIZE; i++) {

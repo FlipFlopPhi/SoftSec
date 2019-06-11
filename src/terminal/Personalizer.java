@@ -65,7 +65,7 @@ public class Personalizer {
 				throw new FailedPersonalizationException("No version of RSA is available on this terminal.");
 			}
 			try {
-				generator.initialize(new RSAKeyGenParameterSpec(Util.MODULUS_LENGTH*8, BigInteger.valueOf(65535)));
+				generator.initialize(new RSAKeyGenParameterSpec(Util.MODULUS_LENGTH*8, BigInteger.valueOf(65537)));
 			} catch (InvalidAlgorithmParameterException e1) {
 				throw new FailedPersonalizationException("An error in the keyspecs has occured, please contact the developers.\n"+e1.getMessage());
 			}
