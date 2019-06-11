@@ -3,13 +3,16 @@
  */
 package terminal;
 
+import java.math.BigInteger;
 import java.security.GeneralSecurityException;
+import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.interfaces.RSAPublicKey;
+import java.security.spec.RSAKeyGenParameterSpec;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -40,9 +43,9 @@ public class BackEnd {
 		KeyPair kp = null;
 		try {
 			generator = KeyPairGenerator.getInstance("RSA");
-			generator.initialize(Util.KEY_LENGTH * 8);
+			generator.initialize(new RSAKeyGenParameterSpec(Util.MODULUS_LENGTH*8, BigInteger.valueOf(65537)));
 			kp = generator.generateKeyPair();
-		} catch (NoSuchAlgorithmException e) {
+		} catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException e) {
 			System.err.println("RSA key pair generator could not be set up.");
 			e.printStackTrace();
 		}
@@ -85,8 +88,11 @@ public class BackEnd {
 		byte[] date = BytesHelper.fromDate(calendar);
 		ByteBuilder hashInput = new ByteBuilder(128+3+2).addPublicRSAKey(publicKey).add(date);
 		byte[] hash = Util.hash(hashInput.array);
+		System.out.println("Ẅhat");
 		ByteBuilder certificate = new ByteBuilder(256);
 		certificate.add(requestMasterEncryption(Arrays.copyOf(certificate.array, 128)));
+
+		System.out.println("Ẅhat");
 		byte[] cert2 = Arrays.copyOfRange(certificate.array, 128, 128 + 3 + 2 + 16);
 		for(int i=0; i<16; i++)
 			cert2[3 + 2 + i] = hash[i];

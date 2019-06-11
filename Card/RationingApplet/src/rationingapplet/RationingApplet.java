@@ -26,7 +26,7 @@ public class RationingApplet extends Applet implements ISO7816 {
     private OwnerPIN pin;
     private byte creditOnCard[];
     private static short RSA_KEY_BYTESIZE = 131;
-    private static short RSA_KEY_MODULUSSIZE = 128;
+    private static short RSA_KEY_MODULUSSIZE = 139;
     private static short RSA_KEY_EXPONENTSIZE = 3;
     private static short AES_KEY_BYTESIZE = 16; // 128/8
     private static short CERTIFICATE_BYTESIZE = 256;
@@ -175,7 +175,8 @@ public class RationingApplet extends Applet implements ISO7816 {
                 break;
             case 9:
                 if (oldState[0] != (short) 8) {
-                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                    //ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                	ISOException.throwIt(oldState[0]);
                 }
                 personalizeStepTwo(apdu, dataLength);
 
@@ -192,6 +193,8 @@ public class RationingApplet extends Applet implements ISO7816 {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);            		
             	}
             	personalizeStepFour(apdu, dataLength);
+            	
+            	break;
             case 25:
                 debugStep(apdu, dataLength);
                 terminalState = 0;
@@ -203,6 +206,18 @@ public class RationingApplet extends Applet implements ISO7816 {
         }
         oldState[0] = terminalState;
 
+        /*// Response (1 byte)
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) 1) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
+        //Util.setShort(buffer, (short) 0, (short) (dataLength));//(byte) 1;
+        //buffer[0] = 1;
+        Util.setShort(buffer, (short) 0, oldState[0]);
+        apdu.sendBytes((short) 1, returnLength);
+        return;*/
+        
         // Extract the returnLength from the apdu buffer (the last byte of the APDU buffer).
         // This is also information is also returned by apdu.setOutgoing(), so I've commented it out here.
         //byte returnLength = buffer[(short)(OFFSET_CDATA + dataLength+1)];
@@ -543,6 +558,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         
         
         // Response (1 byte)
+        
         short returnLength = apdu.setOutgoing();
         if (returnLength != (short) 1) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
@@ -551,13 +567,13 @@ public class RationingApplet extends Applet implements ISO7816 {
         //Util.setShort(buffer, (short) 0, (short) (dataLength));//(byte) 1;
         buffer[0] = 1;
         apdu.sendBytes((short) 0, returnLength);
-        return;
+        return; 
     }
 
     private void personalizeStepTwo (APDU apdu, byte dataLength) {
     	byte[] buffer = apdu.getBuffer();
     	// Private Exponent (variable, max 128 bytes)
-    	cardPrivateKey.setExponent(buffer, OFFSET_CDATA, (short) dataLength);
+    	//cardPrivateKey.setExponent(buffer, OFFSET_CDATA, (short) dataLength);
     	
     	// Response (1 byte)
         short returnLength = apdu.setOutgoing();

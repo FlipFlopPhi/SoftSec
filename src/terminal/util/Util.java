@@ -5,6 +5,7 @@ package terminal.util;
 
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
+import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
@@ -14,8 +15,11 @@ import java.security.PublicKey;
 import java.security.spec.RSAPublicKeySpec;
 import java.util.Arrays;
 
+import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.smartcardio.*;
 
@@ -218,8 +222,6 @@ public final class Util {
 
 	public static byte[] communicate(Card card, Step step, byte[] message, int responseLength) throws CardException {
 		CardChannel channel = card.getBasicChannel();
-		byte[] APP_ID = {(byte) 0x12, (byte) 0x34, (byte) 0x56, (byte) 0x78, (byte) 0x90, (byte) 0xab, };
-		ResponseAPDU response = channel.transmit(new CommandAPDU((byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, APP_ID));
 
 		/*
 		byte[] test= {0x04, 0x03, 0x02, 0x01};
@@ -229,7 +231,7 @@ public final class Util {
 		*/
 
 		printAPDU(new CommandAPDU(0xD0, (byte) 0, step.P1, step.P2, message, responseLength));
-		response = channel
+		ResponseAPDU response = channel
 				.transmit(new CommandAPDU(0xD0, (byte) 0, step.P1, step.P2, message, responseLength));
 		printAPDU(response);
 		int sw1 = response.getSW1();
@@ -243,13 +245,18 @@ public final class Util {
 	 * @param privateKey
 	 * @param message
 	 * @return
+	 * @throws BadPaddingException 
+	 * @throws IllegalBlockSizeException 
+	 * @throws NoSuchPaddingException 
+	 * @throws NoSuchAlgorithmException 
+	 * @throws InvalidKeyException 
 	 * @throws Exception
 	 */
-	public static byte[] encrypt(Key privateKey, byte[] message) throws GeneralSecurityException {
+	public static byte[] encrypt(Key privateKey, byte[] message) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException {
 		return encrypt(privateKey, "RSA", message);
 	}
 
-	public static byte[] encrypt(Key key, String scheme, byte[] message) throws GeneralSecurityException {
+	public static byte[] encrypt(Key key, String scheme, byte[] message) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 		Cipher cipher = Cipher.getInstance(scheme);
 		cipher.init(Cipher.ENCRYPT_MODE, key);
 
