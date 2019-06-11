@@ -86,14 +86,14 @@ public class BackEnd {
 		Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
 		calendar.add(Calendar.YEAR, 5);
 		byte[] date = BytesHelper.fromDate(calendar);
-		ByteBuilder hashInput = new ByteBuilder(128+3+2).addPublicRSAKey(publicKey).add(date);
+		ByteBuilder hashInput = new ByteBuilder(Util.MODULUS_LENGTH+3+2).addPublicRSAKey(publicKey).add(date);
 		byte[] hash = Util.hash(hashInput.array);
-		System.out.println("Ẅhat");
+		System.out.println("what");
 		ByteBuilder certificate = new ByteBuilder(256);
 		certificate.add(requestMasterEncryption(Arrays.copyOf(certificate.array, 128)));
 
-		System.out.println("Ẅhat");
-		byte[] cert2 = Arrays.copyOfRange(certificate.array, 128, 128 + 3 + 2 + 16);
+		System.out.println("yeah");
+		byte[] cert2 = Arrays.copyOfRange(certificate.array, 128, 128 + 11 + 3 + 2 + 16);
 		for(int i=0; i<16; i++)
 			cert2[3 + 2 + i] = hash[i];
 		certificate.add(requestMasterEncryption(cert2));

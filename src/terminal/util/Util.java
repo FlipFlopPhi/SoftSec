@@ -37,7 +37,7 @@ import terminal.exception.IncorrectSequenceNumberException;
  */
 public final class Util {
 
-	public final static int MODULUS_LENGTH = 128;
+	public final static int MODULUS_LENGTH = 128 + 11;
 	public final static int EXPONENT_LENGTH = 3;
 	public final static int KEY_LENGTH = MODULUS_LENGTH + EXPONENT_LENGTH;
 	public final static int AES_KEYSIZE = 128; // AES keysize in number of bits
