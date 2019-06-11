@@ -61,7 +61,7 @@ public class BackEnd {
 	 * @return
 	 * @throws GeneralSecurityException 
 	 */
-	public byte[] requestMasterEncryption(byte[] array) throws GeneralSecurityException {
+	private byte[] requestMasterEncryption(byte[] array) throws GeneralSecurityException {
 		return Util.encrypt(privateM, array);
 	}
 	

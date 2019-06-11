@@ -52,15 +52,8 @@ public abstract class TerminalWithPin implements Pinnable {
 		// TODO: THIS IS NOW HARDCODED DO NOT RELEASE THIS CODE
 		KeyPair kp = generator.generateKeyPair();
 		privateT = kp.getPrivate();
-		ByteBuilder certificateBuilder = new ByteBuilder(Util.MODULUS_LENGTH + 3 + 2);
-		System.out.println(certificateBuilder.getTop());
-		certificateBuilder.addPublicRSAKey(((RSAPublicKey) kp.getPublic()));
-		System.out.println(certificateBuilder.getTop());
-		Calendar date = Calendar.getInstance();
-		date.add(Calendar.YEAR, 5);
-		certificateBuilder.add(BytesHelper.fromDate(date));
 		try {
-			certificateT = BackEnd.getInstance().requestMasterEncryption(certificateBuilder.array);
+			certificateT = BackEnd.getInstance().requestCertificate((RSAPublicKey) kp.getPublic());
 		} catch (GeneralSecurityException e) {
 			throw new CertificateGenerationException();
 		}
