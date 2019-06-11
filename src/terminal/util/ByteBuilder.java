@@ -42,16 +42,11 @@ public class ByteBuilder {
 	}
 
 	public ByteBuilder addPublicRSAKey(RSAPublicKey rsaPublicKey) {
-		return this.add(Arrays.copyOf(rsaPublicKey.getModulus().toByteArray(),125))
+		return this.add(Arrays.copyOf(rsaPublicKey.getModulus().toByteArray(),Util.MODULUS_LENGTH))
 				.add(Arrays.copyOf(rsaPublicKey.getPublicExponent().toByteArray(),3));
 	}
 	
 	public int getTop() {return top;}
-
-	public ByteBuilder addPrivateRSAKey(RSAPrivateKey rsaPrivateKey) {
-		return this.add(Arrays.copyOf(rsaPrivateKey.getModulus().toByteArray(), 125))
-				.add(Arrays.copyOf(rsaPrivateKey.getPrivateExponent().toByteArray(),3));
-	}
 
 
 	
