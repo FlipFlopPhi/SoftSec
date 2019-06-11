@@ -31,11 +31,11 @@ public class MainTest {
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		byte[] testArray = new byte[128];
+		byte[] testArray = new byte[117];
 		testArray[0] = 5;
 		try {
 			KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-			generator.initialize(new RSAKeyGenParameterSpec(Util.MODULUS_LENGTH*8+11*8, BigInteger.valueOf(65537)));
+			generator.initialize(new RSAKeyGenParameterSpec(Util.MODULUS_LENGTH*8, BigInteger.valueOf(65537)));
 			KeyPair kp = generator.generateKeyPair();
 			try {
 				
