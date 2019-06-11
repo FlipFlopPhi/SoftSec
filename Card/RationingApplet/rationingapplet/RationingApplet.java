@@ -519,14 +519,14 @@ public class RationingApplet extends Applet implements ISO7816 {
         //aESCipher.init(symmetricKey, Cipher.MODE_DECRYPT);
         //aESCipher.doFinal(buffer, OFFSET_CDATA, (short) 16, notepad, 0);
 
-        short transactionSize = (short) (dataLength-HASH_SIZE);
+        short transactionSize = (short) (dataLength-HASH_BYTESIZE);
 
         // Decrypt transaction info
         rSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
-        rSACipher.doFinal(buffer, OFFSET_CDATA, RSA_KEY_BYTESIZE, notepad, HASH_SIZE);
+        rSACipher.doFinal(buffer, OFFSET_CDATA, RSA_KEY_BYTESIZE, notepad, HASH_BYTESIZE);
 
         // Check if received hashed transaction equals actual hashed transaction
-        hasher.doFinal(notepad, HASH_SIZE, transactionSize, notepad, (short) 0);
+        hasher.doFinal(notepad, HASH_BYTESIZE, transactionSize, notepad, (short) 0);
 
         for (byte i = 0; i<HASH_BYTESIZE; i++){
             if (notepad[i] != buffer[(short) (OFFSET_CDATA + transactionSize + i)]){
@@ -536,21 +536,21 @@ public class RationingApplet extends Applet implements ISO7816 {
 
         // Saldo change (first 4 bytes)
         for (byte i = 3; i>=0; i--){
-            if (creditOnCard[i] > notepad[HASH_SIZE+i] + overflow){
-                creditOnCard[i] += 10 - notepad[HASH_SIZE+i] - overflow;
+            if (creditOnCard[i] > notepad[HASH_BYTESIZE+i] + overflow){
+                creditOnCard[i] += 10 - notepad[HASH_BYTESIZE+i] - overflow;
                 overflow = 1;
             } else {
-                creditOnCard[i] -= notepad[HASH_SIZE+i] - overflow;
+                creditOnCard[i] -= notepad[HASH_BYTESIZE+i] - overflow;
                 overflow = 0;
             }
         }
 
         // Outgoing: The original transaction info, encrypted with privateT, also encrypted with privateC
         rSACipher.init(cardPrivateKey,Cipher.MODE_ENCRYPT);
-        rSACipher.doFinal(notepad, HASH_SIZE, transactionSize, buffer, (short) 0);
+        rSACipher.doFinal(notepad, HASH_BYTESIZE, transactionSize, buffer, (short) 0);
 
         short returnLength = apdu.setOutgoing();
-        if (returnLength != (short) (dataLength-HASH_SIZE)) {
+        if (returnLength != (short) (dataLength-HASH_BYTESIZE)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
         apdu.setOutgoingLength(returnLength);
