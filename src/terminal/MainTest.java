@@ -35,7 +35,7 @@ public class MainTest {
 		testArray[0] = 5;
 		try {
 			KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-			generator.initialize(new RSAKeyGenParameterSpec(Util.MODULUS_LENGTH*8+11*8, BigInteger.valueOf(65537)));
+			generator.initialize(new RSAKeyGenParameterSpec(Util.MODULUS_LENGTH*8, BigInteger.valueOf(65537)));
 			KeyPair kp = generator.generateKeyPair();
 			try {
 				

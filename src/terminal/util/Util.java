@@ -37,9 +37,9 @@ import terminal.exception.IncorrectSequenceNumberException;
  */
 public final class Util {
 
-	public final static int MODULUS_LENGTH = 128 + 11;
+	public final static int MODULUS_LENGTH = 128;
 	public final static int EXPONENT_LENGTH = 3;
-	public final static int KEY_LENGTH = MODULUS_LENGTH + EXPONENT_LENGTH;
+	public final static int RSA_BLOCK_LENGTH = 117;
 	public final static int AES_KEYSIZE = 128; // AES keysize in number of bits
 	public final static int DATE_BYTESIZE = 2;
 	public final static int CERTIFICATE_BYTESIZE = 256;
@@ -102,7 +102,7 @@ public final class Util {
 			// We want to retrieve the publicC first
 			PublicKey publicC = KeyFactory.getInstance("RSA").generatePublic(
 					new RSAPublicKeySpec(new BigInteger(Arrays.copyOfRange(certificateC1, 0, MODULUS_LENGTH)),
-							new BigInteger(Arrays.copyOfRange(certificateC1, MODULUS_LENGTH, KEY_LENGTH))));
+							new BigInteger(Arrays.copyOfRange(certificateC1, MODULUS_LENGTH, MODULUS_LENGTH +EXPONENT_LENGTH))));
 			byte[] sequenceNumberEncrypted = Arrays.copyOfRange(reply, CARDNUMBER_BYTESIZE + 1,
 					CARDNUMBER_BYTESIZE + 1 + 128);
 			short returnedSeqNr = BytesHelper.toShort(decrypt(publicC, sequenceNumberEncrypted));
