@@ -163,7 +163,7 @@ public class RationingApplet extends Applet implements ISO7816 {
                 if (oldState[0] != (short) 5 || oldState[0] != (short) 7) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
-                pumpStepOne(apdu, dataLength);
+                pumpStep(apdu, dataLength);
 
                 break;
             case 8:
@@ -509,7 +509,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         apdu.sendBytes((short) 0, returnLength);
     }
 
-    private void pumpStepOne (APDU apdu, byte dataLength) {
+    private void pumpStep (APDU apdu, byte dataLength) {
         // Incoming: Transaction info -> (saldoChange, currentDate, terminalNumber, cardNumber)
         // encrypted with the privateT-key,
         // and H(Transaction Info)
@@ -558,12 +558,6 @@ public class RationingApplet extends Applet implements ISO7816 {
         // Set APDU to response
         apdu.sendBytes((short) 0, returnLength);
     }
-
-    private void pumpStepTwo(APDU apdu, byte dataLength) {
-
-    }
-
-
 
     private void personalizeStepOne (APDU apdu, byte dataLength) {
         byte[] buffer = apdu.getBuffer();
