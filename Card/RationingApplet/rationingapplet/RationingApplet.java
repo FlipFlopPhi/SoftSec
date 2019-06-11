@@ -514,7 +514,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         // encrypted with the privateT-key,
         // and H(Transaction Info)
         // The entire things is encrypted with the AES key
-        //byte[] buffer = apdu.getBuffer();
+        byte[] buffer = apdu.getBuffer();
 
         //aESCipher.init(symmetricKey, Cipher.MODE_DECRYPT);
         //aESCipher.doFinal(buffer, OFFSET_CDATA, (short) 16, notepad, 0);
@@ -522,8 +522,6 @@ public class RationingApplet extends Applet implements ISO7816 {
         short transactionSize = (short) (dataLength-HASH_SIZE);
 
         // Decrypt transaction info
-        //aESCipher.init();
-
         rSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
         rSACipher.doFinal(buffer, OFFSET_CDATA, RSA_KEY_BYTESIZE, notepad, HASH_SIZE);
 
@@ -536,16 +534,25 @@ public class RationingApplet extends Applet implements ISO7816 {
             }
         }
 
-        // TODO: Actually doing something with the transaction info
+        // Saldo change (first 4 bytes)
+        for (byte i = 3; i>=0; i--){
+            if (creditOnCard[i] > notepad[HASH_SIZE+i] + overflow){
+                creditOnCard[i] += 10 - notepad[HASH_SIZE+i] - overflow;
+                overflow = 1;
+            } else {
+                creditOnCard[i] -= notepad[HASH_SIZE+i] - overflow;
+                overflow = 0;
+            }
+        }
 
         // Outgoing: The original transaction info, encrypted with privateT, also encrypted with privateC
         rSACipher.init(cardPrivateKey,Cipher.MODE_ENCRYPT);
         rSACipher.doFinal(notepad, HASH_SIZE, transactionSize, buffer, (short) 0);
 
         short returnLength = apdu.setOutgoing();
-        /*if (returnLength != (short) ((short) 7 + CERTIFICATE_BYTESIZE)) {
+        if (returnLength != (short) (dataLength-HASH_SIZE)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-        }*/
+        }
         apdu.setOutgoingLength(returnLength);
 
         // Set APDU to response
