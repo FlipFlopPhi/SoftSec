@@ -3,6 +3,11 @@
  */
 package terminal.util;
 
+import java.math.BigInteger;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.util.Arrays;
+
 /**
  * @author pspaendonck
  *
@@ -18,9 +23,12 @@ public class ByteBuilder {
 		length = arrayLength;
 	}
 
-	public ByteBuilder add(byte[] date) {
-		for(int i=0; i<date.length; i++,top++) {
-			array[top] = date[i];
+	public ByteBuilder add(byte[] data) {
+		return this.add(data, 0, data.length);
+	}
+	public ByteBuilder add(byte[] data, int from, int to) {
+		for(int i=from; i<data.length &i<to; i++,top++) {
+			array[top] = data[i];
 		}
 		return this;
 	}
@@ -29,5 +37,22 @@ public class ByteBuilder {
 		return this.add(BytesHelper.fromInt(integer));
 	}
 	
+	public ByteBuilder add(short value) {
+		return this.add(BytesHelper.fromShort(value));
+	}
+
+	public ByteBuilder addPublicRSAKey(RSAPublicKey rsaPublicKey) {
+		return this.add(Arrays.copyOf(rsaPublicKey.getModulus().toByteArray(),125))
+				.add(Arrays.copyOf(rsaPublicKey.getPublicExponent().toByteArray(),3));
+	}
+	
+	public int getTop() {return top;}
+
+	public ByteBuilder addPrivateRSAKey(RSAPrivateKey rsaPrivateKey) {
+		return this.add(Arrays.copyOf(rsaPrivateKey.getModulus().toByteArray(), 125))
+				.add(Arrays.copyOf(rsaPrivateKey.getPrivateExponent().toByteArray(),3));
+	}
+
+
 	
 }
