@@ -163,7 +163,7 @@ public class RationingApplet extends Applet implements ISO7816 {
                 if (oldState[0] != (short) 5 || oldState[0] != (short) 7) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
-                pumpStepOne(apdu, dataLength);
+                pumpStep(apdu, dataLength);
 
                 break;
             case 8:
@@ -509,27 +509,55 @@ public class RationingApplet extends Applet implements ISO7816 {
         apdu.sendBytes((short) 0, returnLength);
     }
 
-    private void pumpStepOne (APDU apdu, byte dataLength) {
+    private void pumpStep (APDU apdu, byte dataLength) {
         // Incoming: Transaction info -> (saldoChange, currentDate, terminalNumber, cardNumber)
         // encrypted with the privateT-key,
         // and H(Transaction Info)
         // The entire things is encrypted with the AES key
-        //byte[] buffer = apdu.getBuffer();
+        byte[] buffer = apdu.getBuffer();
 
         //aESCipher.init(symmetricKey, Cipher.MODE_DECRYPT);
         //aESCipher.doFinal(buffer, OFFSET_CDATA, (short) 16, notepad, 0);
 
+        short transactionSize = (short) (dataLength-HASH_BYTESIZE);
+
+        // Decrypt transaction info
+        rSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
+        rSACipher.doFinal(buffer, OFFSET_CDATA, RSA_KEY_BYTESIZE, notepad, HASH_BYTESIZE);
+
+        // Check if received hashed transaction equals actual hashed transaction
+        hasher.doFinal(notepad, HASH_BYTESIZE, transactionSize, notepad, (short) 0);
+
+        for (byte i = 0; i<HASH_BYTESIZE; i++){
+            if (notepad[i] != buffer[(short) (OFFSET_CDATA + transactionSize + i)]){
+                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+            }
+        }
+
+        // Saldo change (first 4 bytes)
+        for (byte i = 3; i>=0; i--){
+            if (creditOnCard[i] > notepad[HASH_BYTESIZE+i] + overflow){
+                creditOnCard[i] += 10 - notepad[HASH_BYTESIZE+i] - overflow;
+                overflow = 1;
+            } else {
+                creditOnCard[i] -= notepad[HASH_BYTESIZE+i] - overflow;
+                overflow = 0;
+            }
+        }
 
         // Outgoing: The original transaction info, encrypted with privateT, also encrypted with privateC
+        rSACipher.init(cardPrivateKey,Cipher.MODE_ENCRYPT);
+        rSACipher.doFinal(notepad, HASH_BYTESIZE, transactionSize, buffer, (short) 0);
 
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) (dataLength-HASH_BYTESIZE)) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
 
+        // Set APDU to response
+        apdu.sendBytes((short) 0, returnLength);
     }
-
-    private void pumpStepTwo(APDU apdu, byte dataLength) {
-
-    }
-
-
 
     private void personalizeStepOne (APDU apdu, byte dataLength) {
         byte[] buffer = apdu.getBuffer();
