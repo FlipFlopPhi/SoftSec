@@ -70,8 +70,9 @@ public class Personalizer {
 				throw new FailedPersonalizationException("An error in the keyspecs has occured, please contact the developers.\n"+e1.getMessage());
 			}
 			KeyPair kp = generator.generateKeyPair();
-			byte[] privateC = BytesHelper.fromPrivateKey((RSAPrivateKey) kp.getPrivate());
-			Util.communicate(card, Step.Personalize, privateC, 1); 
+			RSAPrivateKey privateC = (RSAPrivateKey) kp.getPrivate();
+			Util.communicate(card, Step.Personalize, privateC.getModulus().toByteArray(), 1);
+			Util.communicate(card, Step.Personalize2, privateC.getPrivateExponent().toByteArray(), 1);
 			
 			byte[] certificateC; try {
 				certificateC = BackEnd.getInstance().requestCertificate((RSAPublicKey)kp.getPublic());
@@ -82,9 +83,9 @@ public class Personalizer {
 			ByteBuilder persT2 = new ByteBuilder(Util.MODULUS_LENGTH + 3 + 64 + Integer.BYTES + Integer.BYTES);
 			persT2.addPublicRSAKey(BackEnd.getInstance().getPublicMasterKey())
 				.add(Arrays.copyOf(certificateC, 64)).add(pin).add(cardNumber);
-			Util.communicate(card, Step.Personalize2, persT2.array, 1);
+			Util.communicate(card, Step.Personalize3, persT2.array, 1);
 			
-			Util.communicate(card, Step.Personalize3, Arrays.copyOfRange(certificateC, 64, 256), 1);
+			Util.communicate(card, Step.Personalize4, Arrays.copyOfRange(certificateC, 64, 256), 1);
 			
 			BackEnd.getInstance().storeCardInfo(cardNumber, kp.getPublic());//TODO integrate personal user information
 		} catch (CardException e1) {

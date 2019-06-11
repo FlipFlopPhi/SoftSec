@@ -65,6 +65,7 @@ public final class BytesHelper {
 
 	public static byte[] fromPrivateKey(RSAPrivateKey privateKey) {
 		byte[] exponent = privateKey.getPrivateExponent().toByteArray();
+		System.out.println(exponent.length);
 		byte[] key = Arrays.copyOf(privateKey.getModulus().toByteArray(),128+exponent.length);
 		for(int i=0; i<exponent.length; i++) {
 			key[128+i] = exponent[i];
