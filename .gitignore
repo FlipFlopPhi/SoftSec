@@ -1,2 +1,9 @@
 /bin/
 .idea
+Card/gp/
+Card/java_card_kit-2_2_1
+Card/RationingApplet/bin/*
+Card/TestApplet/bin/testapplet/*.class
+Card/TestApplet/bin/testapplet/javacard/*.cap
+Card/TestTerminal/bin/*.jar
+

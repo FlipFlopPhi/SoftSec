@@ -42,6 +42,7 @@ public class Personalizer {
 			Card card = reader.connect("*");
 			int pin = 1234;
 			int cardNumber = 0;
+			/*
 			System.out.println("Is this a new Account? (Y/N)");
 			Scanner scanner = new Scanner(System.in);
 			String input;
@@ -53,6 +54,9 @@ public class Personalizer {
 				//TODO do something with this;
 			}
 			scanner.close();
+			*/
+			BackEnd.getInstance().registerCard(cardNumber, new Account()); //TODO remove this and uncomment earlier code
+			
 			KeyPairGenerator generator;
 			try {
 				generator = KeyPairGenerator.getInstance("RSA");
@@ -69,6 +73,8 @@ public class Personalizer {
 			ByteBuilder keyPinNr = new ByteBuilder(Util.KEY_LENGTH + Integer.BYTES + Integer.BYTES);
 			keyPinNr.addPrivateRSAKey((RSAPrivateKey) privateC).add(pin).add(cardNumber);
 			Util.communicate(card, Step.Personalize, keyPinNr.array, 1); 
+			
+			System.exit(1); //TODO dit weghalen
 			
 			ByteBuilder publicM = new ByteBuilder(Util.KEY_LENGTH);
 			Util.communicate(card, Step.Personalize2
@@ -91,6 +97,7 @@ public class Personalizer {
 			
 			BackEnd.getInstance().storeCardInfo(cardNumber, publicC);//TODO integrate personal user information
 		} catch (CardException e1) {
+			e1.printStackTrace();
 			throw new FailedPersonalizationException("Could not connect with a card for personalization.");
 		}
 		

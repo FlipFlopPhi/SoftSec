@@ -31,7 +31,7 @@ public class MainTest {
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		byte[] testArray = new byte[17];
+		/*byte[] testArray = new byte[17];
 		testArray[0] = 5;
 		try {
 			KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
@@ -49,8 +49,8 @@ public class MainTest {
 		} catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
-		}
-		/*try {
+		}*/
+		try {
 			Personalizer.personalize();
 		} catch (FailedPersonalizationException e1) {
 			System.err.println("Personalization failed \n"+e1.getLocalizedMessage());
@@ -67,7 +67,7 @@ public class MainTest {
 					| CardBlockedException | IncorrectCertificateException e) {
 				e.printStackTrace();
 			}
-		} catch (Exception e) {e.printStackTrace();}*/
+		} catch (Exception e) {e.printStackTrace();}
 	}
 
 }
