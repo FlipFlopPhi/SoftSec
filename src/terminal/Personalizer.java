@@ -87,10 +87,10 @@ public class Personalizer {
 				e.printStackTrace();
 				throw new FailedPersonalizationException("Encrypting certificates using backEnd failed.");
 			}
-			ByteBuilder persT2 = new ByteBuilder(Util.MODULUS_LENGTH + 3 + 64 + Integer.BYTES + Integer.BYTES);
-			persT2.addPublicRSAKey(BackEnd.getInstance().getPublicMasterKey())
+			ByteBuilder persT3 = new ByteBuilder(Util.MODULUS_LENGTH + 3 + 64 + Integer.BYTES + Integer.BYTES);
+			persT3.addPublicRSAKey(BackEnd.getInstance().getPublicMasterKey())
 				.add(Arrays.copyOf(certificateC, 64)).add(pin).add(cardNumber);
-			Util.communicate(card, Step.Personalize3, persT2.array, 1);
+			Util.communicate(card, Step.Personalize3, persT3.array, 1);
 			
 			Util.communicate(card, Step.Personalize4, Arrays.copyOfRange(certificateC, 64, 256), 1);
 			
