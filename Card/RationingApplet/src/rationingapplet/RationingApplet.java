@@ -4,8 +4,6 @@ import javacard.framework.*;
 import javacard.security.*;
 import javacardx.crypto.*;
 
-import javax.smartcardio.CardException;
-
 public class RationingApplet extends Applet implements ISO7816 {
     // Data definitions
     //private byte someData[];
@@ -31,7 +29,7 @@ public class RationingApplet extends Applet implements ISO7816 {
     private static short AES_KEY_BYTESIZE = 16; // 128/8
     private static short CERTIFICATE_BYTESIZE = 256;
     private static short HANDSHAKE_ONE_INPUT_LENGTH_MIN = 133;
-    private static short NOTEPAD_SIZE = 512;
+    private static short NOTEPAD_SIZE = 520;
     private static short HASH_BYTESIZE = 16;
     private static byte VERSION_NUMBER = 1;
 
@@ -312,6 +310,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         for (short i = 0; i < (short) (CERTIFICATE_BYTESIZE / (short) 2); i++) {
             notepad[i] = buffer[(short) (i + OFFSET_CDATA + terminalSupportedVersionsLength + (short) 4)];
         }
+        
 
         // Send acknowledgement (1)
         short returnLength = apdu.setOutgoing();
@@ -325,19 +324,73 @@ public class RationingApplet extends Applet implements ISO7816 {
     }
 
 
-    public void handshakeStepTwo(APDU apdu, byte dataLength ) {
+    private void handshakeStepTwo(APDU apdu, byte dataLength ) {
         byte[] buffer = apdu.getBuffer();
-
+        
         //Read the remainder of the certificate
-        for (short i = (short) (CERTIFICATE_BYTESIZE / (short) 4); i < CERTIFICATE_BYTESIZE; i++) {
-            notepad[i] = buffer[(short) (i + OFFSET_CDATA)];
+        for (short i = 0; i < (short) (CERTIFICATE_BYTESIZE / (short) 2); i++) {
+            notepad[(short) (i + CERTIFICATE_BYTESIZE / (short) 2)] = buffer[(short) (i + OFFSET_CDATA)];
         }
-
-
+        
+        
+        
         // Decrypt the certificate with the master key.
-        rSACipher.init(masterKey, Cipher.MODE_DECRYPT);
-        rSACipher.doFinal(notepad, (short) 0, CERTIFICATE_BYTESIZE, notepad, CERTIFICATE_BYTESIZE);
-
+        
+        notepad[0] = (byte) 1;
+        
+        rSACipher.init(masterKey, Cipher.MODE_ENCRYPT);
+        
+        for (short i = 1; i < NOTEPAD_SIZE; i++) {
+        	notepad[i] = (byte)0;
+        }
+        
+        short cipherLength = rSACipher.doFinal(notepad, (short) 0, (short) 1, notepad, (short) 128);
+        
+        /*
+        byte checksum = (byte) 0;
+        masterKey.getExponent(notepad, (short) 256);
+        for (short i = 0; i < (short) cipherLength; i++) {
+        	//checksum += notepad[i];
+        	checksum += notepad[(short) (i + 128)];
+        }*/
+        //ISOException.throwIt(checksum);
+        
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) 197) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
+        //Util.setShort(buffer, (short) 0, (short) (dataLength));//(byte) 1;
+        
+        //masterKey.getModulus(buffer, (short) 0);
+        //masterKey.getExponent(buffer, RSA_KEY_MODULUSSIZE);
+        for (short i = 0; i < cipherLength; i++) {
+        	buffer[i] = notepad[(short) (i + 128)];
+        }
+        for (short i = cipherLength; i < 197; i++) {
+        	buffer[i] = 0;
+        }
+        
+        apdu.sendBytes((short) 0, returnLength);
+        return;
+        
+        
+        
+        //ISOException.throwIt((short) notepad[(short) 128]);
+        //ISOException.throwIt(cipherLength);
+        /*
+        for (short i = CERTIFICATE_BYTESIZE; i >= 0; i--) {
+	        try {
+	        	rSACipher.init(masterKey, Cipher.MODE_DECRYPT);
+	        	short certSize = rSACipher.doFinal(notepad, (short) 0, i, notepad, (short)(CERTIFICATE_BYTESIZE+1));
+	        	ISOException.throwIt(i);
+	        	//short certSize = rSACipher.doFinal(notepad, (short) 0, CERTIFICATE_BYTESIZE, notepad, (short)(CERTIFICATE_BYTESIZE+1));
+	        } catch (CryptoException e) {
+	        	continue;
+	        }
+        }
+        ISOException.throwIt((short) 999);
+        *//*
         // Hash the decrypted public key and expiration date
         short hashLength = hasher.doFinal(notepad, CERTIFICATE_BYTESIZE, (short) (RSA_KEY_BYTESIZE + (short) 4), notepad, (short) 0);
 
@@ -388,7 +441,7 @@ public class RationingApplet extends Applet implements ISO7816 {
             buffer[(short) (i + 7)] = cardCertificate[i];
         }
 
-        apdu.sendBytes((short) 0, returnLength);
+        apdu.sendBytes((short) 0, returnLength);*/
     }
 
     private void handshakeStepThree(APDU apdu, byte dataLength) {
@@ -590,8 +643,8 @@ public class RationingApplet extends Applet implements ISO7816 {
     private void personalizeStepThree (APDU apdu, byte dataLength) {
         byte[] buffer = apdu.getBuffer();
         // Master key (128 bytes)
-        masterKey.setExponent(buffer, OFFSET_CDATA, RSA_KEY_EXPONENTSIZE);
-        masterKey.setModulus(buffer, (short) (OFFSET_CDATA + RSA_KEY_EXPONENTSIZE), RSA_KEY_MODULUSSIZE);
+        masterKey.setExponent(buffer, (short) (OFFSET_CDATA + RSA_KEY_MODULUSSIZE), RSA_KEY_EXPONENTSIZE);
+        masterKey.setModulus(buffer, OFFSET_CDATA, RSA_KEY_MODULUSSIZE);
 
         // Partial certificate (64 bytes)
         for (short i = 0; i < (short) (CERTIFICATE_BYTESIZE / 4); i++) {

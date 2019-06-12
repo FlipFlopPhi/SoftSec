@@ -48,7 +48,7 @@ public abstract class TerminalWithPin implements Pinnable {
 		this.type = type;
 
 		KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-		generator.initialize(new RSAKeyGenParameterSpec(Util.MODULUS_LENGTH * 8, BigInteger.valueOf(65535)));
+		generator.initialize(new RSAKeyGenParameterSpec(Util.MODULUS_LENGTH * 8, BigInteger.valueOf(65537)));
 		// TODO: THIS IS NOW HARDCODED DO NOT RELEASE THIS CODE
 		KeyPair kp = generator.generateKeyPair();
 		privateT = kp.getPrivate();

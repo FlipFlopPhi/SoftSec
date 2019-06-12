@@ -23,6 +23,7 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.smartcardio.*;
 
+import terminal.BackEnd;
 import terminal.InvalidPinException;
 import terminal.Pinnable;
 import terminal.Step;
@@ -84,6 +85,26 @@ public final class Util {
 		ByteBuilder initMsg = new ByteBuilder(1 + 1 + versions.length + 2 + 128);
 		initMsg.add(type.getByte()).add((byte)versions.length).add(versions).add(R).add(certificateT, 0, 128);
 
+		byte checksum = (byte) 0;
+        for (short i = 0; i < (short) EXPONENT_LENGTH; i++) {
+        	//checksum += certificateT[i];
+        	byte part = BackEnd.getInstance().getPublicMasterKey().getPublicExponent().toByteArray()[i];
+        	checksum += part;
+        	System.out.print(String.format("%02x,",part));
+        }
+		System.out.println("checksum: " + String.format("%02x,",checksum));
+        
+		System.out.print("FUUUUCK:"); 
+		
+		Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+		cipher.init(Cipher.ENCRYPT_MODE, BackEnd.getInstance().getPublicMasterKey());
+		byte[] ciphertext = cipher.doFinal(new byte[] {1});
+		
+		for (byte b : ciphertext) {
+			System.out.print(String.format("%02x,",b));
+		}
+		System.out.println(".");
+		
 		// Start Communication
 		try {
 			if (communicate(card, Step.Handshake1, initMsg.array, 1)[0] != ACK)
@@ -253,7 +274,7 @@ public final class Util {
 	 * @throws Exception
 	 */
 	public static byte[] encrypt(Key privateKey, byte[] message) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException {
-		return encrypt(privateKey, "RSA", message);
+		return encrypt(privateKey, "RSA/ECB/PKCS1Padding", message);
 	}
 
 	public static byte[] encrypt(Key key, String scheme, byte[] message) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
@@ -284,5 +305,12 @@ public final class Util {
 	public static byte[] hash(byte[] data) throws NoSuchAlgorithmException {
 		MessageDigest md = MessageDigest.getInstance("MD5");
 		return md.digest(data);
+	}
+	
+	static byte checkSum(byte[] array) {
+		byte check = 0;
+		for(byte b : array)
+			check+=b;
+		return check;
 	}
 }
