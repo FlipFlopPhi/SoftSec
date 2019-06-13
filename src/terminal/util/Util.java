@@ -225,8 +225,8 @@ public final class Util {
 			byte[] hash = hash(pin);
 			for (int i = 0; i < HASH_LENGTH; i++)
 				msg[pin.length + i] = hash[i];
-			byte[] reply = decrypt(key, "AES",
-					communicate(card, Step.Pin, encrypt(key, "AES", msg), 16));
+			byte[] reply = decrypt(key, "AES/ECB/NoPadding",
+					communicate(card, Step.Pin, encrypt(key, "AES/ECB/NoPadding", msg), 16));
 			if (reply[0] == PIN_SUCCESFUL) {
 				byte[] amountOnCard = Arrays.copyOfRange(reply, 1, reply.length);
 				terminal.showSucces();
@@ -297,12 +297,20 @@ public final class Util {
 		return encrypt(privateKey, "RSA/ECB/PKCS1Padding", message);
 	}
 
-	public static byte[] encrypt(Key key, String scheme, byte[] message) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+	private static byte[] encrypt(Key key, String scheme, byte[] message) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 		Cipher cipher = Cipher.getInstance(scheme);
 		cipher.init(Cipher.ENCRYPT_MODE, key);
 
 		return cipher.doFinal(message);
 	}
+	
+	public static byte[] encryptAES(SecretKey secretKey, byte[] message) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+		Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+		cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+		
+		return cipher.doFinal(message);
+	}
+
 
 	/**
 	 * * @author https://gist.github.com/dmydlarz/32c58f537bb7e0ab9ebf
@@ -315,12 +323,20 @@ public final class Util {
 		return decrypt(publicKey, "RSA", encrypted);// Uses RSA as defined in PKCS #1
 	}
 
-	public static byte[] decrypt(Key key, String scheme, byte[] encrypted) throws GeneralSecurityException {
+	private static byte[] decrypt(Key key, String scheme, byte[] encrypted) throws GeneralSecurityException {
 		Cipher cipher = Cipher.getInstance(scheme);
 		cipher.init(Cipher.DECRYPT_MODE, key);
 
 		return cipher.doFinal(encrypted);
 	}
+	
+	public static byte[] decryptAES(Key secretKey, byte[] message) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+		Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+		cipher.init(Cipher.DECRYPT_MODE, secretKey);
+
+		return cipher.doFinal(message);
+	}
+	
 
 	public static byte[] hash(byte[] data) throws NoSuchAlgorithmException {
 		MessageDigest md = MessageDigest.getInstance("MD5");

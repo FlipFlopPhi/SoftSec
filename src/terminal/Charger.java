@@ -42,8 +42,8 @@ public class Charger extends TerminalWithPin {
 		for(int i=0; i<hash.length; i++)
 			requestMsg[Integer.BYTES + i] = hash[i];
 		Account.testAccount.decreaseBy(amountRequested);
-		byte[] reply = Util.communicate(card, Step.Charge, Util.encrypt(aesKey, "AES", requestMsg), 16);
-		if (Util.decrypt(aesKey, "AES", reply)[0] != TRANSFER_SUCCESSFUL)
+		byte[] reply = Util.communicate(card, Step.Charge, Util.encryptAES(aesKey, requestMsg), 16);
+		if (Util.decryptAES(aesKey, reply)[0] != TRANSFER_SUCCESSFUL)
 			throw new IncorrectResponseCodeException(TRANSFER_SUCCESSFUL);
 	}
 

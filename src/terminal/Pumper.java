@@ -45,7 +45,7 @@ public class Pumper extends TerminalWithPin {
 			byte[] transactionInfoHashed = Util.hash(transactionInfo.array);
 			for (int i=0;  i < transactionInfoHashed.length; i++)
 				msg[transactionInfo.length + i] = transactionInfoHashed[i];
-			byte[] certificate = Util.communicate(card, Step.Pump1, Util.encrypt(aesKey, "AES", msg)
+			byte[] certificate = Util.communicate(card, Step.Pump1, Util.encryptAES(aesKey, msg)
 					,128);
 			byte[] decryptedCert = Util.decrypt(publicC, certificate);
 			if (!Arrays.equals(transactionInfo.array, decryptedCert))
