@@ -9,6 +9,7 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
 import java.security.spec.RSAKeyGenParameterSpec;
 
 import javax.smartcardio.CardException;
@@ -28,6 +29,7 @@ import terminal.util.Util;
 public class MainTest {
 
 	public static byte[] certificateC;
+	public static PublicKey publicT;
 
 	/**
 	 * @param args

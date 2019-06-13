@@ -6,7 +6,7 @@ public enum Step {
 	,Handshake3((short)3)
 	,Handshake4((short)4)
 	,Handshake5((short)5)
-	,Pin((short)5)
+	,Pin((short)12)
 	,Charge((short)6)
 	,Pump1((short)7)
 	,Personalize((short)8)

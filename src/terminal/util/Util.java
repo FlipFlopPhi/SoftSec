@@ -12,6 +12,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.interfaces.RSAPublicKey;
 import java.security.spec.RSAPublicKeySpec;
 import java.util.Arrays;
 
@@ -156,11 +157,23 @@ public final class Util {
 			keyMsg[AES_KEYSIZE / 8 + 1] = incrementedR[1];
 			// Send + Response
 			byte[] blockT = encrypt(privateT, keyMsg);
+			
+			System.out.println("tmod: " + checkSum(((RSAPublicKey) MainTest.publicT).getModulus().toByteArray()));
+			System.out.println("texp: " + checkSum(((RSAPublicKey) MainTest.publicT).getPublicExponent().toByteArray()));
+			
 			communicate(card, Step.Handshake4, encrypt(publicC, Arrays.copyOf(blockT, 117)), 1);
+
 			reply = communicate(card, Step.Handshake5, encrypt(publicC, Arrays.copyOfRange(blockT, 117, 128)), 16);
-			sequenceNumberEncrypted = decrypt(aesKey, "AES", reply);
-			if (returnedSeqNr != (byte) Math.floorMod(R + 3 * randomIncrement, 2 ^ 15))
-				throw new IncorrectSequenceNumberException();
+
+			System.out.println("aes: "+checkSum(encrypt(aesKey,"AES/ECB/NoPadding",new byte[16])));
+			System.out.println("repluy: "+checkSum(reply));
+			returnedSeqNr = BytesHelper.toShort(Arrays.copyOfRange(decrypt(aesKey, "AES/ECB/NoPadding", reply),4,6));
+			System.out.println(checkSum(reply = decrypt(aesKey, "AES/ECB/NoPadding", reply)));
+			for(byte b : reply) {
+				System.out.print(b+" ,");
+			}
+			/*if (returnedSeqNr != (short) Math.floorMod(R + 3 * randomIncrement, 2 ^ 15))
+				throw new IncorrectSequenceNumberException();*/
 			return new Triple<SecretKey, PublicKey, Integer>(aesKey, publicC, Integer.valueOf(cardNumber));
 		} catch (CardException e) {
 			e.printStackTrace();
@@ -314,10 +327,10 @@ public final class Util {
 		return md.digest(data);
 	}
 	
-	public static byte checkSum(byte[] array) {
+	public static String checkSum(byte[] array) {
 		byte check = 0;
 		for(byte b : array)
 			check+=b;
-		return check;
+		return String.format("%02x", check);
 	}
 }
