@@ -220,13 +220,16 @@ public final class Util {
 				e.printStackTrace();
 				continue;
 			}
-			byte[] msg = Arrays.copyOf(pin, pin.length + HASH_LENGTH);// Copy the pin, leaving room for the hash of the
+			byte[] msg = Arrays.copyOf(encryptAES(key,pin), 2*HASH_LENGTH);// Copy the pin, leaving room for the hash of the
 																		// pin.
-			byte[] hash = hash(pin);
+			byte[] hash = encryptAES(key,hash(pin));
 			for (int i = 0; i < HASH_LENGTH; i++)
-				msg[pin.length + i] = hash[i];
+				msg[HASH_LENGTH+ i] = hash[i];
 			byte[] reply = decrypt(key, "AES/ECB/NoPadding",
-					communicate(card, Step.Pin, encrypt(key, "AES/ECB/NoPadding", msg), 16));
+					communicate(card, Step.Pin, msg, 16));
+			for(byte b:reply) {
+				System.out.print(b+", ");
+			}
 			if (reply[0] == PIN_SUCCESFUL) {
 				byte[] amountOnCard = Arrays.copyOfRange(reply, 1, reply.length);
 				terminal.showSucces();
@@ -306,9 +309,10 @@ public final class Util {
 	
 	public static byte[] encryptAES(SecretKey secretKey, byte[] message) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 		Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+		
 		cipher.init(Cipher.ENCRYPT_MODE, secretKey);
 		
-		return cipher.doFinal(message);
+		return cipher.doFinal(Arrays.copyOf(message, 16));
 	}
 
 

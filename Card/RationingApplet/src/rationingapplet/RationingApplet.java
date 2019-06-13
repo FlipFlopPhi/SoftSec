@@ -572,7 +572,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         byte[] buffer = apdu.getBuffer();
 
         // Check if encrypted message has right size
-        if (dataLength != (short) (AES_KEY_BYTESIZE*2)) {
+        if (Util.makeShort((byte) 0, dataLength) != (short) (AES_KEY_BYTESIZE*2)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
@@ -580,32 +580,41 @@ public class RationingApplet extends Applet implements ISO7816 {
         aESCipher.init(symmetricKey, Cipher.MODE_DECRYPT);
         short pinSize = aESCipher.doFinal(buffer, OFFSET_CDATA, AES_KEY_BYTESIZE, notepad, (short) 0);
         short hashSize = aESCipher.doFinal(buffer, (short) (OFFSET_CDATA+AES_KEY_BYTESIZE), AES_KEY_BYTESIZE, notepad, pinSize);
-
+        
         // Check if decrypted message has right size
-        if (hashSize != HASH_BYTESIZE || pinLength != (short) 4) {
+        if (hashSize != HASH_BYTESIZE || pinSize != (short) AES_KEY_BYTESIZE) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        	//ISOException.throwIt((short)123);
         }
 
         // Check if received hashed pin equals actual hashed credit
-        hasher.doFinal(notepad, (short) 0, pinSize, notepad, (short) (HASH_BYTESIZE + pinSize));
+        hashSize = hasher.doFinal(notepad, (short) 0, pinSize, notepad, (short) (HASH_BYTESIZE + pinSize));
 
-        for (byte i = 0; i<HASH_BYTESIZE; i++){
-            if (notepad[(short) (i+pinSize)] != notepad[(short) (i+HASH_BYTESIZE+pinSize)]){
-                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+        if (hashSize != HASH_BYTESIZE) {
+        	ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        
+        for (short i = 0; i<HASH_BYTESIZE; i++){
+            if (notepad[(short) (i + pinSize)] != notepad[(short) (i+HASH_BYTESIZE+pinSize)]){
+                //ISOException.throwIt(Util.makeShort(notepad[2], notepad[3]));
             }
         }
 
         // Check if received pin equals stored pin
         // SUCCESS = 0, FAIL = 1, BLOCK = 2
-        if (pin.check(buffer, OFFSET_CDATA, (byte) pinSize)){
-            buffer[0] = (byte) 0;
+        if (pin.check(notepad, (short) 0, (byte) 4)){
+            notepad[0] = (byte) 0;
         } else {
-            buffer[0] = (pin.getTriesRemaining() == (byte) 0) ? (byte) 2 : (byte) 1;
+            notepad[0] = (pin.getTriesRemaining() == (byte) 0) ? (byte) 2 : (byte) 1;
         }
 
+        for (short i = 1; i < AES_KEY_BYTESIZE; i++) {
+        	notepad[i] = 0;
+        }
+        
         // AES encryption
         aESCipher.init(symmetricKey, Cipher.MODE_ENCRYPT);
-        short outLength = aESCipher.doFinal(buffer, (short) 0, (short) 1, buffer, (short) 0);
+        short outLength = aESCipher.doFinal(notepad, (short) 0, (short) AES_KEY_BYTESIZE, buffer, (short) 0);
 
         // Set APDU to response
         short returnLength = apdu.setOutgoing();
@@ -630,7 +639,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         short hashSize = aESCipher.doFinal(buffer, (short) (OFFSET_CDATA+AES_KEY_BYTESIZE), AES_KEY_BYTESIZE, notepad, creditSize);
 
         // Check if decrypted message has right size
-        if (hashSize != HASH_BYTESIZE || pinLength != (short) 4) {
+        if (hashSize != HASH_BYTESIZE || creditSize != (short) 4) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
@@ -678,7 +687,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         // AES decryption
         aESCipher.init(symmetricKey, Cipher.MODE_DECRYPT);
         short msgSize = aESCipher.doFinal(buffer, OFFSET_CDATA, AES_KEY_BYTESIZE, notepad, (short) 0);
-        short hashSize = aESCipher.doFinal(buffer, (short) (OFFSET_CDATA+AES_KEY_BYTESIZE), AES_KEY_BYTESIZE, notepad, creditSize);
+        short hashSize = aESCipher.doFinal(buffer, (short) (OFFSET_CDATA+AES_KEY_BYTESIZE), AES_KEY_BYTESIZE, notepad, msgSize);
 
         // Check if decrypted message has right size
         if (msgSize != RSA_KEY_BYTESIZE || hashSize != HASH_BYTESIZE) {
@@ -690,7 +699,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         short transactionSize = rSACipher.doFinal(notepad, (short) 0, msgSize, notepad, (short) (msgSize+HASH_BYTESIZE*2));
 
         // Check if received hashed transaction equals actual hashed transaction
-        hasher.doFinal(notepad, (short) (msgSize+HASH_BYTESIZE*2), transactionSize, notepad, msgSize+HASH_BYTESIZE);
+        hasher.doFinal(notepad, (short) (msgSize+HASH_BYTESIZE*2), transactionSize, notepad, (short) (msgSize+HASH_BYTESIZE));
 
         for (byte i = 0; i<HASH_BYTESIZE; i++){
             if (notepad[(short) (msgSize+i)] != notepad[(short) (msgSize+HASH_BYTESIZE+i)]){
@@ -698,10 +707,12 @@ public class RationingApplet extends Applet implements ISO7816 {
             }
         }
 
+        
+        short overflow = 0;
         // Saldo change (first 4 bytes)
         for (byte i = 3; i>=0; i--){
-            if (creditOnCard[i] > notepad[(short) (msgSize+HASH_BYTESIZE*2+i)] + overflow){
-                creditOnCard[i] += 10 - notepad[(short) (msgSize+HASH_BYTESIZE*2+i)] - overflow;
+            if (creditOnCard[i] > (short) (notepad[(short) (msgSize+HASH_BYTESIZE*2+i)] + overflow)){
+                creditOnCard[i] += (short) (10 - notepad[(short) (msgSize+HASH_BYTESIZE*2+i)] - overflow);
                 overflow = 1;
             } else {
                 creditOnCard[i] -= notepad[(short) (msgSize+HASH_BYTESIZE*2+i)] - overflow;
@@ -779,7 +790,8 @@ public class RationingApplet extends Applet implements ISO7816 {
         }
 
         //Pin (4 bytes), Cardnumber (4 bytes)
-        pin.update(buffer, (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE), (byte) 4);
+        //ISOException.throwIt(Util.makeShort(buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE+2+ (short) (CERTIFICATE_BYTESIZE / 4))], buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE+3+ (short) (CERTIFICATE_BYTESIZE / 4))]));
+        pin.update(buffer, (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + (short) (CERTIFICATE_BYTESIZE / 4)), (byte) 4);
 
         for (short i = 0; i < 4; i++) {
             cardNumber[i] = buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + i + 4)];
