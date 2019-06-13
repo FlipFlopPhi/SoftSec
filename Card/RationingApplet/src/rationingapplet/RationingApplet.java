@@ -790,7 +790,6 @@ public class RationingApplet extends Applet implements ISO7816 {
         }
 
         //Pin (4 bytes), Cardnumber (4 bytes)
-        //ISOException.throwIt(Util.makeShort(buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE+2+ (short) (CERTIFICATE_BYTESIZE / 4))], buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE+3+ (short) (CERTIFICATE_BYTESIZE / 4))]));
         pin.update(buffer, (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + (short) (CERTIFICATE_BYTESIZE / 4)), (byte) 4);
 
         for (short i = 0; i < 4; i++) {
