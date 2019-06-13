@@ -47,7 +47,7 @@ public class ByteBuilder {
 	}
 
 	public ByteBuilder addPublicRSAKey(RSAPublicKey rsaPublicKey) {
-		return this.add(Arrays.copyOf(rsaPublicKey.getModulus().toByteArray(),Util.MODULUS_LENGTH))
+		return this.add(Arrays.copyOfRange(rsaPublicKey.getModulus().toByteArray(),1,1+Util.MODULUS_LENGTH))
 				.add(Arrays.copyOf(rsaPublicKey.getPublicExponent().toByteArray(),3));
 	}
 	

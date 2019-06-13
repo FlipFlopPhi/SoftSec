@@ -25,6 +25,7 @@ import javax.smartcardio.*;
 
 import terminal.BackEnd;
 import terminal.InvalidPinException;
+import terminal.MainTest;
 import terminal.Pinnable;
 import terminal.Step;
 import terminal.TerminalType;
@@ -84,26 +85,6 @@ public final class Util {
 		// Generate the initial handshake message (The Hello)
 		ByteBuilder initMsg = new ByteBuilder(1 + 1 + versions.length + 2 + 128);
 		initMsg.add(type.getByte()).add((byte)versions.length).add(versions).add(R).add(certificateT, 0, 128);
-
-		byte checksum = (byte) 0;
-        for (short i = 0; i < (short) EXPONENT_LENGTH; i++) {
-        	//checksum += certificateT[i];
-        	byte part = BackEnd.getInstance().getPublicMasterKey().getPublicExponent().toByteArray()[i];
-        	checksum += part;
-        	System.out.print(String.format("%02x,",part));
-        }
-		System.out.println("checksum: " + String.format("%02x,",checksum));
-        
-		System.out.print("FUUUUCK:"); 
-		
-		Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-		cipher.init(Cipher.ENCRYPT_MODE, BackEnd.getInstance().getPublicMasterKey());
-		byte[] ciphertext = cipher.doFinal(new byte[] {1});
-		
-		for (byte b : ciphertext) {
-			System.out.print(String.format("%02x,",b));
-		}
-		System.out.println(".");
 		
 		// Start Communication
 		try {
@@ -116,31 +97,55 @@ public final class Util {
 			// TODO: Make support for version handling of card and terminal on the
 			// terminalside.
 			byte[] reply2 = communicate(card, Step.Handshake3, new byte[] { ACK }, 192);
-			byte[] certificateC1 = Arrays.copyOfRange(reply, 0, 128);
-			for (int i = 64; i < 128; i++)
-				certificateC1[i] = reply2[i - 64];
+			byte[] certificateC1 = new byte[128];
+			for (int i= 0; i<64;i++) {
+				certificateC1[i] = reply[4+1+128+i];
+				System.out.print(certificateC1[i]);
+				System.out.println("," + MainTest.certificateC[i]);
+			}
+			for (int i = 0; i < 64; i++) {
+				certificateC1[64+i] = reply2[i];
+				System.out.print(certificateC1[64+i]);
+				System.out.println("," + MainTest.certificateC[64+i]);
+			}
 			certificateC1 = decrypt(publicM, certificateC1);
+			
+			byte[] certificateC2 = new byte[128];
+			for (int i = 0; i < 128; i++) {
+				certificateC2[i] = reply2[64 + i];
+				System.out.print(certificateC2[i]);
+				System.out.println("," + MainTest.certificateC[128+i]);
+			}
+			certificateC2 = decrypt(publicM,certificateC2);
+			
+			byte[] mod = new byte[129];
+			mod[0] =0;
+			for(int i=0;i<117; i++) {
+				mod[1+i] = certificateC1[i];
+			}
+			for(int i=0; i<11; i++) {
+				mod[118+i] = certificateC2[i];
+			}
+			
+			byte[] exp = Arrays.copyOfRange(certificateC2, 11, 11+3);
+			System.out.println(new BigInteger(mod) +","+exp.length);
 			// We want to retrieve the publicC first
 			PublicKey publicC = KeyFactory.getInstance("RSA").generatePublic(
-					new RSAPublicKeySpec(new BigInteger(Arrays.copyOfRange(certificateC1, 0, MODULUS_LENGTH)),
-							new BigInteger(Arrays.copyOfRange(certificateC1, MODULUS_LENGTH, MODULUS_LENGTH +EXPONENT_LENGTH))));
+					new RSAPublicKeySpec(new BigInteger(mod), new BigInteger(exp)));
 			byte[] sequenceNumberEncrypted = Arrays.copyOfRange(reply, CARDNUMBER_BYTESIZE + 1,
 					CARDNUMBER_BYTESIZE + 1 + 128);
 			short returnedSeqNr = BytesHelper.toShort(decrypt(publicC, sequenceNumberEncrypted));
 			short randomIncrement = (short) Math.floorMod(returnedSeqNr - R, 2 ^ 15);
 
-			byte[] certificateC2 = new byte[128];
-			for (int i = 0; i < 128; i++)
-				certificateC2[i] = reply2[64 + i];
-			byte[] dateNHash = decrypt(publicM, certificateC2);
-			// TODO: check the certificate's date.
+			/*byte[] hash
+			// TODO: check the certificate's date. and checksum the hash
 			byte[] certificateC = Arrays.copyOf(certificateC1, 128 + 2);
 			certificateC[128] = dateNHash[0];
 			certificateC[129] = dateNHash[1];
 			if (Arrays.equals(hash(Arrays.copyOfRange(dateNHash, 2, 18)), hash(certificateC))) {
 				throw new MismatchedHashException();
 			}
-			
+			*/
 			// Send Message 3transmit
 			KeyGenerator generator = KeyGenerator.getInstance("AES");
 			generator.init(AES_KEYSIZE); // advanced Encryption Standard as specified by NIST in FIPS 197.
@@ -307,7 +312,7 @@ public final class Util {
 		return md.digest(data);
 	}
 	
-	static byte checkSum(byte[] array) {
+	public static byte checkSum(byte[] array) {
 		byte check = 0;
 		for(byte b : array)
 			check+=b;

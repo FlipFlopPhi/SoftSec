@@ -27,6 +27,8 @@ import terminal.util.Util;
  */
 public class MainTest {
 
+	public static byte[] certificateC;
+
 	/**
 	 * @param args
 	 */
