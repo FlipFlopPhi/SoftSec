@@ -441,19 +441,23 @@ public class RationingApplet extends Applet implements ISO7816 {
     private void pinStep (APDU apdu, byte dataLength) {
         byte[] buffer = apdu.getBuffer();
 
-        // Check if message has size of hash + pin
-        if (dataLength != (short) (HASH_BYTESIZE + 4)) {
+        // AES decryption
+        aESCipher.init(symmetricKey, Cipher.MODE_DECRYPT);
+        short msgLength = aESCipher.doFinal(buffer, OFFSET_CDATA, (short) dataLength, notepad, (short) 0);
+
+        // Check if decrypted message has right size
+        if (msgLength > HASH_BYTESIZE && msgLength <= (short) (HASH_BYTESIZE+4)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
-        // Pin length is fixed at 4 bytes (as assured above), but left this in just in case we might change it
-        short pinSize = (short) (dataLength-HASH_BYTESIZE);
+        // Pin length (fixed at 4, but computed just to be sure)
+        short pinSize = (short) (msgLength-HASH_BYTESIZE);
 
         // Check if received hashed pin equals actual hashed credit
-        hasher.doFinal(buffer, (short) OFFSET_CDATA, pinSize, notepad, (short) 0);
+        hasher.doFinal(notepad, (short) 0, pinSize, notepad, (short) (HASH_BYTESIZE + pinSize));
 
         for (byte i = 0; i<HASH_BYTESIZE; i++){
-            if (notepad[i] != buffer[(short) (OFFSET_CDATA + pinSize + i)]){
+            if (notepad[(short) (i+pinSize)] != notepad[(short) (i+HASH_BYTESIZE+pinSize)]){
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
             }
         }
@@ -466,9 +470,13 @@ public class RationingApplet extends Applet implements ISO7816 {
             buffer[0] = (pin.getTriesRemaining() == (byte) 0) ? (byte) 2 : (byte) 1;
         }
 
+        // AES encryption
+        aESCipher.init(symmetricKey, Cipher.MODE_ENCRYPT);
+        short outLength = aESCipher.doFinal(buffer, (short) 0, (short) 1, buffer, (short) 0);
+
         // Set APDU to response
         short returnLength = apdu.setOutgoing();
-        if (returnLength != (short) 1) {
+        if (returnLength != outLength) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
         apdu.setOutgoingLength(returnLength);
@@ -478,31 +486,41 @@ public class RationingApplet extends Applet implements ISO7816 {
     private void chargeStep (APDU apdu, byte dataLength) {
         byte[] buffer = apdu.getBuffer();
 
-        // Check if message is minimum length of hash size + 1
-        if (dataLength < (short) (HASH_BYTESIZE + 1)) {
+        // AES decryption
+        aESCipher.init(symmetricKey, Cipher.MODE_DECRYPT);
+        short msgLength = aESCipher.doFinal(buffer, OFFSET_CDATA, (short) dataLength, notepad, (short) 0);
+
+        // Check if decrypted message has right size
+        if (msgLength > HASH_BYTESIZE && msgLength <= (short) (HASH_BYTESIZE+4)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
-        short creditSize = (short) (dataLength-HASH_BYTESIZE);
+        // Credit length (fixed at 4, but computed just to be sure)
+        short creditSize = (short) (msgLength-HASH_BYTESIZE);
 
         // Check if received hashed credit equals actual hashed credit
-        hasher.doFinal(buffer, (short) OFFSET_CDATA, creditSize, notepad, (short) 0);
+        hasher.doFinal(notepad, (short) 0, creditSize, notepad, (short) (HASH_BYTESIZE + creditSize));
 
         for (byte i = 0; i<HASH_BYTESIZE; i++){
-            if (notepad[i] != buffer[(short) (OFFSET_CDATA + creditSize + i)]){
+            if (notepad[(short) (i+creditSize)] != notepad[(short) (i+HASH_BYTESIZE+creditSize)]){
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
             }
         }
 
         // Store new credit value
         for (byte i = 0; i<creditSize; i++){
-            creditOnCard[i] = buffer[(short) (OFFSET_CDATA + i)];
+            creditOnCard[i] = notepad[i];
         }
 
         // Set APDU to response
         buffer[0] = (byte) 1;
+
+        // AES encryption
+        aESCipher.init(symmetricKey, Cipher.MODE_ENCRYPT);
+        short outLength = aESCipher.doFinal(buffer, (short) 0, (short) 1, buffer, (short) 0);
+
         short returnLength = apdu.setOutgoing();
-        if (returnLength != (short) 1) {
+        if (returnLength != outLength) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
         apdu.setOutgoingLength(returnLength);
@@ -516,41 +534,49 @@ public class RationingApplet extends Applet implements ISO7816 {
         // The entire things is encrypted with the AES key
         byte[] buffer = apdu.getBuffer();
 
-        //aESCipher.init(symmetricKey, Cipher.MODE_DECRYPT);
-        //aESCipher.doFinal(buffer, OFFSET_CDATA, (short) 16, notepad, 0);
+        // AES decryption
+        aESCipher.init(symmetricKey, Cipher.MODE_DECRYPT);
+        short msgLength = aESCipher.doFinal(buffer, OFFSET_CDATA, (short) dataLength, notepad, (short) 0);
 
-        short transactionSize = (short) (dataLength-HASH_BYTESIZE);
+        // Check if decrypted message has right size
+        if (msgLength > HASH_BYTESIZE && msgLength <= (short) (HASH_BYTESIZE+128)) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
 
         // Decrypt transaction info
         rSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
-        rSACipher.doFinal(buffer, OFFSET_CDATA, RSA_KEY_BYTESIZE, notepad, HASH_BYTESIZE);
+        short transactionSize = rSACipher.doFinal(notepad, (short) 0, (short) (msgLength-HASH_BYTESIZE), notepad, (short) (msgLength+HASH_BYTESIZE));
 
         // Check if received hashed transaction equals actual hashed transaction
-        hasher.doFinal(notepad, HASH_BYTESIZE, transactionSize, notepad, (short) 0);
+        hasher.doFinal(notepad, (short) (msgLength+HASH_BYTESIZE), transactionSize, notepad, msgLength);
 
         for (byte i = 0; i<HASH_BYTESIZE; i++){
-            if (notepad[i] != buffer[(short) (OFFSET_CDATA + transactionSize + i)]){
+            if (notepad[(short) (msgLength-HASH_BYTESIZE+i)] != notepad[(short) (msgLength+i)]){
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
             }
         }
 
         // Saldo change (first 4 bytes)
         for (byte i = 3; i>=0; i--){
-            if (creditOnCard[i] > notepad[HASH_BYTESIZE+i] + overflow){
-                creditOnCard[i] += 10 - notepad[HASH_BYTESIZE+i] - overflow;
+            if (creditOnCard[i] > notepad[(short) (msgLength+HASH_BYTESIZE+i)] + overflow){
+                creditOnCard[i] += 10 - notepad[(short) (msgLength+HASH_BYTESIZE+i)] - overflow;
                 overflow = 1;
             } else {
-                creditOnCard[i] -= notepad[HASH_BYTESIZE+i] - overflow;
+                creditOnCard[i] -= notepad[(short) (msgLength+HASH_BYTESIZE+i)] - overflow;
                 overflow = 0;
             }
         }
 
         // Outgoing: The original transaction info, encrypted with privateT, also encrypted with privateC
         rSACipher.init(cardPrivateKey,Cipher.MODE_ENCRYPT);
-        rSACipher.doFinal(notepad, HASH_BYTESIZE, transactionSize, buffer, (short) 0);
+        rSACipher.doFinal(notepad, (short) 0, (short) (msgLength-HASH_BYTESIZE), buffer, (short) 0);
+
+        // AES encryption
+        aESCipher.init(symmetricKey, Cipher.MODE_ENCRYPT);
+        short outLength = aESCipher.doFinal(buffer, (short) 0, RSA_KEY_BYTESIZE, buffer, (short) 0);
 
         short returnLength = apdu.setOutgoing();
-        if (returnLength != (short) (dataLength-HASH_BYTESIZE)) {
+        if (returnLength != outLength) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
         apdu.setOutgoingLength(returnLength);
