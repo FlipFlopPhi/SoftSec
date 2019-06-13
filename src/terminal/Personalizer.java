@@ -100,7 +100,7 @@ public class Personalizer {
 				.add(Arrays.copyOf(certificateC, 64)).add(pin).add(cardNumber);
 			byte[] responseData = Util.communicate(card, Step.Personalize3, persT3.array, 130);
 			
-			byte modulusChecksum = Util.checkSum(BackEnd.getInstance().getPublicMasterKey().getModulus().toByteArray());
+			/*byte modulusChecksum = Util.checkSum(BackEnd.getInstance().getPublicMasterKey().getModulus().toByteArray());
 			byte exponentChecksum = Util.checkSum(BackEnd.getInstance().getPublicMasterKey().getPublicExponent().toByteArray());
 			if (responseData[0] !=  modulusChecksum ||
 					responseData[1] != exponentChecksum) {
@@ -116,7 +116,7 @@ public class Personalizer {
 				System.out.println(".");
 				System.out.println(BackEnd.getInstance().getPublicMasterKey().getModulus().toByteArray().length);
 				throw new FailedPersonalizationException("Masterkey checksum failed");
-			}
+			}*/
 			
 			
 			Util.communicate(card, Step.Personalize4, Arrays.copyOfRange(certificateC, 64, 256), 1);

@@ -58,7 +58,8 @@ public class RationingApplet extends Applet implements ISO7816 {
 
         rSACipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
         //AES algorithm:
-
+        aESCipher = Cipher.getInstance(Cipher.ALG_AES_BLOCK_128_ECB_NOPAD, false);
+        
         rngesus = RandomData.getInstance(RandomData.ALG_SECURE_RANDOM);
 
         // Hashing
@@ -148,19 +149,26 @@ public class RationingApplet extends Applet implements ISO7816 {
                 handshakeStepFour(apdu, dataLength);
                 break;
             case 5:
-                if (oldState[0] != (short) 4) {
+            	if (oldState[0] != (short) 4) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                }
+                handshakeStepFive(apdu, dataLength);
+                break;
+            
+            case 12:
+                if (oldState[0] != (short) 5) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
                 pinStep(apdu, dataLength);
                 break;
             case 6:
-                if (oldState[0] != (short) 5) {
+                if (oldState[0] != (short) 12) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
                 chargeStep(apdu, dataLength);
                 break;
             case 7:
-                if (oldState[0] != (short) 5 && oldState[0] != (short) 7) {
+                if (oldState[0] != (short) 12 && oldState[0] != (short) 7) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
                 pumpStep(apdu, dataLength);
@@ -362,10 +370,9 @@ public class RationingApplet extends Applet implements ISO7816 {
                 ISOException.throwIt(ISO7816.SW_SECURE_MESSAGING_NOT_SUPPORTED);
             }
         }
-
-        terminalPublicKey.setExponent(notepad, CERTIFICATE_BYTESIZE, RSA_KEY_EXPONENTSIZE);
-        terminalPublicKey.setModulus(notepad, (short) (CERTIFICATE_BYTESIZE + RSA_KEY_EXPONENTSIZE), RSA_KEY_MODULUSSIZE);
-
+        
+        terminalPublicKey.setModulus(notepad, CERTIFICATE_BYTESIZE, RSA_KEY_MODULUSSIZE);
+        terminalPublicKey.setExponent(notepad, (short) (CERTIFICATE_BYTESIZE + RSA_KEY_MODULUSSIZE), RSA_KEY_EXPONENTSIZE);
         
         // Start building the response
         // Set APDU to response
@@ -435,6 +442,88 @@ public class RationingApplet extends Applet implements ISO7816 {
     }
 
     private void handshakeStepFour (APDU apdu, byte dataLength) {
+    	byte[] buffer = apdu.getBuffer();
+    	if (Util.makeShort((byte) 0, dataLength) != RSA_KEY_MODULUSSIZE) {
+    		ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+    	}
+    	
+    	// Decrypt first half of symkey
+    	rSACipher.init(cardPrivateKey, Cipher.MODE_DECRYPT);
+    	rSACipher.doFinal(buffer, OFFSET_CDATA, RSA_KEY_MODULUSSIZE, notepad, (short) 0);
+    	
+    	// Send ACK
+    	short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) 1) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
+        //Util.setShort(buffer, (short) 0, (short) (dataLength));//(byte) 1;
+        buffer[0] = 1;
+        apdu.sendBytes((short) 0, returnLength);
+        return; 
+    }
+    
+    private void handshakeStepFive(APDU apdu, byte dataLength) {
+    	byte[] buffer = apdu.getBuffer();
+    	if (Util.makeShort((byte) 0, dataLength) != RSA_KEY_MODULUSSIZE) {
+    		ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+    	}
+    	
+    	// Decrypt first half of symkey
+    	rSACipher.init(cardPrivateKey, Cipher.MODE_DECRYPT);
+    	short textLength = rSACipher.doFinal(buffer, OFFSET_CDATA, RSA_KEY_MODULUSSIZE, notepad, (short) 117);
+    	
+    	
+    	if (textLength != (short) 11) {
+    		ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+    	}
+    	
+    	/*terminalPublicKey.getModulus(notepad, (short) 256);
+    	terminalPublicKey.getExponent(notepad, (short) 384);
+    	ISOException.throwIt(Util.makeShort(calcChecksum(notepad, (short) 256, RSA_KEY_MODULUSSIZE), 
+    			calcChecksum(notepad, (short) 384, RSA_KEY_EXPONENTSIZE)));*/
+    	
+    	try {
+    		rSACipher.init(terminalPublicKey, Cipher.MODE_DECRYPT);
+    		textLength = rSACipher.doFinal(notepad, (short) 0, RSA_KEY_MODULUSSIZE, notepad, RSA_KEY_MODULUSSIZE);
+    	} catch (CryptoException e) {
+        	ISOException.throwIt(e.getReason());
+        }
+    	
+    	if (textLength != (short) 18) {
+    		ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+    	}
+    	
+    	symmetricKey.setKey(notepad, (short) RSA_KEY_MODULUSSIZE);
+    	// ISOException.throwIt((short) calcChecksum(notepad, RSA_KEY_MODULUSSIZE, (short) 16));
+    	
+    	// Prepare response; card will respond with a symmetric encrypted (aesKey) OK
+        short returnLength = apdu.setOutgoing();
+        if (returnLength !=  AES_KEY_BYTESIZE) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        apdu.setOutgoingLength(returnLength);
+
+        short incremented = (short) ((short) (sequenceNumber[0] + 3*sequenceNumber[1])%(short) (2^15));
+        Util.setShort(notepad,(short)0,incremented);
+        for (short i = 2; i < AES_KEY_BYTESIZE; i++) {
+        	notepad[i] = (byte) 0;
+        }
+        
+        
+        try {
+        	aESCipher.init(symmetricKey,Cipher.MODE_ENCRYPT);
+	        textLength = aESCipher.doFinal(notepad, (short) 0, AES_KEY_BYTESIZE, buffer, (short) 0);
+	        //ISOException.throwIt(textLength);
+        } catch (CryptoException e) {
+        	ISOException.throwIt(e.getReason());
+        }
+        
+        // Set APDU to response
+        apdu.sendBytes((short) 0, returnLength);
+    }
+    
+    /*private void handshakeStepFour (APDU apdu, byte dataLength) {
         byte[] buffer = apdu.getBuffer();
 
         if (dataLength != (short) (AES_KEY_BYTESIZE + 2)) {
@@ -477,22 +566,25 @@ public class RationingApplet extends Applet implements ISO7816 {
         
         // Set APDU to response
         apdu.sendBytes((short) 0, returnLength);
-    }
+    }*/
 
     private void pinStep (APDU apdu, byte dataLength) {
         byte[] buffer = apdu.getBuffer();
 
-        // AES decryption
-        aESCipher.init(symmetricKey, Cipher.MODE_DECRYPT);
-        short msgLength = aESCipher.doFinal(buffer, OFFSET_CDATA, (short) dataLength, notepad, (short) 0);
-
-        // Check if decrypted message has right size
-        if (msgLength > HASH_BYTESIZE && msgLength <= (short) (HASH_BYTESIZE+4)) {
+        // Check if encrypted message has right size
+        if (dataLength != (short) (AES_KEY_BYTESIZE*2)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
-        // Pin length (fixed at 4, but computed just to be sure)
-        short pinSize = (short) (msgLength-HASH_BYTESIZE);
+        // AES decryption
+        aESCipher.init(symmetricKey, Cipher.MODE_DECRYPT);
+        short pinSize = aESCipher.doFinal(buffer, OFFSET_CDATA, AES_KEY_BYTESIZE, notepad, (short) 0);
+        short hashSize = aESCipher.doFinal(buffer, (short) (OFFSET_CDATA+AES_KEY_BYTESIZE), AES_KEY_BYTESIZE, notepad, pinSize);
+
+        // Check if decrypted message has right size
+        if (hashSize != HASH_BYTESIZE || pinLength != (short) 4) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
 
         // Check if received hashed pin equals actual hashed credit
         hasher.doFinal(notepad, (short) 0, pinSize, notepad, (short) (HASH_BYTESIZE + pinSize));
@@ -527,17 +619,20 @@ public class RationingApplet extends Applet implements ISO7816 {
     private void chargeStep (APDU apdu, byte dataLength) {
         byte[] buffer = apdu.getBuffer();
 
-        // AES decryption
-        aESCipher.init(symmetricKey, Cipher.MODE_DECRYPT);
-        short msgLength = aESCipher.doFinal(buffer, OFFSET_CDATA, (short) dataLength, notepad, (short) 0);
-
-        // Check if decrypted message has right size
-        if (msgLength > HASH_BYTESIZE && msgLength <= (short) (HASH_BYTESIZE+4)) {
+        // Check if encrypted message has right size
+        if (dataLength != (short) (AES_KEY_BYTESIZE*2)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
-        // Credit length (fixed at 4, but computed just to be sure)
-        short creditSize = (short) (msgLength-HASH_BYTESIZE);
+        // AES decryption
+        aESCipher.init(symmetricKey, Cipher.MODE_DECRYPT);
+        short creditSize = aESCipher.doFinal(buffer, OFFSET_CDATA, AES_KEY_BYTESIZE, notepad, (short) 0);
+        short hashSize = aESCipher.doFinal(buffer, (short) (OFFSET_CDATA+AES_KEY_BYTESIZE), AES_KEY_BYTESIZE, notepad, creditSize);
+
+        // Check if decrypted message has right size
+        if (hashSize != HASH_BYTESIZE || pinLength != (short) 4) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
 
         // Check if received hashed credit equals actual hashed credit
         hasher.doFinal(notepad, (short) 0, creditSize, notepad, (short) (HASH_BYTESIZE + creditSize));
@@ -575,42 +670,48 @@ public class RationingApplet extends Applet implements ISO7816 {
         // The entire things is encrypted with the AES key
         byte[] buffer = apdu.getBuffer();
 
+        // Check if encrypted message has right size
+        if (dataLength != (short) (AES_KEY_BYTESIZE*2)) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+
         // AES decryption
         aESCipher.init(symmetricKey, Cipher.MODE_DECRYPT);
-        short msgLength = aESCipher.doFinal(buffer, OFFSET_CDATA, (short) dataLength, notepad, (short) 0);
+        short msgSize = aESCipher.doFinal(buffer, OFFSET_CDATA, AES_KEY_BYTESIZE, notepad, (short) 0);
+        short hashSize = aESCipher.doFinal(buffer, (short) (OFFSET_CDATA+AES_KEY_BYTESIZE), AES_KEY_BYTESIZE, notepad, creditSize);
 
         // Check if decrypted message has right size
-        if (msgLength > HASH_BYTESIZE && msgLength <= (short) (HASH_BYTESIZE+128)) {
+        if (msgSize != RSA_KEY_BYTESIZE || hashSize != HASH_BYTESIZE) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
         // Decrypt transaction info
         rSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
-        short transactionSize = rSACipher.doFinal(notepad, (short) 0, (short) (msgLength-HASH_BYTESIZE), notepad, (short) (msgLength+HASH_BYTESIZE));
+        short transactionSize = rSACipher.doFinal(notepad, (short) 0, msgSize, notepad, (short) (msgSize+HASH_BYTESIZE*2));
 
         // Check if received hashed transaction equals actual hashed transaction
-        hasher.doFinal(notepad, (short) (msgLength+HASH_BYTESIZE), transactionSize, notepad, msgLength);
+        hasher.doFinal(notepad, (short) (msgSize+HASH_BYTESIZE*2), transactionSize, notepad, msgSize+HASH_BYTESIZE);
 
         for (byte i = 0; i<HASH_BYTESIZE; i++){
-            if (notepad[(short) (msgLength-HASH_BYTESIZE+i)] != notepad[(short) (msgLength+i)]){
+            if (notepad[(short) (msgSize+i)] != notepad[(short) (msgSize+HASH_BYTESIZE+i)]){
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
             }
         }
 
         // Saldo change (first 4 bytes)
         for (byte i = 3; i>=0; i--){
-            if (creditOnCard[i] > notepad[(short) (msgLength+HASH_BYTESIZE+i)] + overflow){
-                creditOnCard[i] += 10 - notepad[(short) (msgLength+HASH_BYTESIZE+i)] - overflow;
+            if (creditOnCard[i] > notepad[(short) (msgSize+HASH_BYTESIZE*2+i)] + overflow){
+                creditOnCard[i] += 10 - notepad[(short) (msgSize+HASH_BYTESIZE*2+i)] - overflow;
                 overflow = 1;
             } else {
-                creditOnCard[i] -= notepad[(short) (msgLength+HASH_BYTESIZE+i)] - overflow;
+                creditOnCard[i] -= notepad[(short) (msgSize+HASH_BYTESIZE*2+i)] - overflow;
                 overflow = 0;
             }
         }
 
         // Outgoing: The original transaction info, encrypted with privateT, also encrypted with privateC
         rSACipher.init(cardPrivateKey,Cipher.MODE_ENCRYPT);
-        rSACipher.doFinal(notepad, (short) 0, (short) (msgLength-HASH_BYTESIZE), buffer, (short) 0);
+        rSACipher.doFinal(notepad, (short) 0, msgSize, buffer, (short) 0);
 
         // AES encryption
         aESCipher.init(symmetricKey, Cipher.MODE_ENCRYPT);

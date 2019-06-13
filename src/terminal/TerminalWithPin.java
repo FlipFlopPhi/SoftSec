@@ -52,6 +52,7 @@ public abstract class TerminalWithPin implements Pinnable {
 		// TODO: THIS IS NOW HARDCODED DO NOT RELEASE THIS CODE
 		KeyPair kp = generator.generateKeyPair();
 		privateT = kp.getPrivate();
+		MainTest.publicT = kp.getPublic();
 		try {
 			certificateT = BackEnd.getInstance().requestCertificate((RSAPublicKey) kp.getPublic());
 		} catch (GeneralSecurityException e) {
