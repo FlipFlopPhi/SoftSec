@@ -155,7 +155,9 @@ public final class Util {
 			keyMsg[AES_KEYSIZE / 8] = incrementedR[0];
 			keyMsg[AES_KEYSIZE / 8 + 1] = incrementedR[1];
 			// Send + Response
-			reply = communicate(card, Step.Handshake4, encrypt(publicC, encrypt(privateT, keyMsg)), 16);
+			byte[] blockT = encrypt(privateT, keyMsg);
+			communicate(card, Step.Handshake4, encrypt(publicC, Arrays.copyOf(blockT, 117)), 1);
+			reply = communicate(card, Step.Handshake5, encrypt(publicC, Arrays.copyOfRange(blockT, 117, 128)), 16);
 			sequenceNumberEncrypted = decrypt(aesKey, "AES", reply);
 			if (returnedSeqNr != (byte) Math.floorMod(R + 3 * randomIncrement, 2 ^ 15))
 				throw new IncorrectSequenceNumberException();
