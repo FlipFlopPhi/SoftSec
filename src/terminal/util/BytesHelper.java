@@ -17,7 +17,7 @@ public final class BytesHelper {
 	public static int toInt( byte[] bytes ) {
 	    int result = 0;
 	    for (int i=0; i<4; i++) {
-	    	result = ( result << 8 ) - Byte.MIN_VALUE + (int) bytes[i];
+	    	result += ( (bytes[i] & 0xff) << 8*(3-i) );
 	    }
 	    return result;
 	}
@@ -25,7 +25,7 @@ public final class BytesHelper {
 	public static short toShort(byte[] bytes) {
 		short result = 0;
 	    for (int i=0; i<2; i++) {
-	    	result = (short) (( result << 8 ) - Byte.MIN_VALUE + (short) bytes[i]);
+	    	result += ( bytes[i] << 8*(2-i) );
 	    }
 	    return result;
 	}

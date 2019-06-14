@@ -1,5 +1,4 @@
 package rationingapplet;
-
 import javacard.framework.*;
 import javacard.security.*;
 import javacardx.crypto.*;
@@ -36,6 +35,14 @@ public class RationingApplet extends Applet implements ISO7816 {
     private static byte VERSION_NUMBER = 1;
 
     public RationingApplet() {
+    	//Hey Toon ik hoop dat ik hier gewoon dingen mag invoeren :3
+    	creditOnCard = new byte[4];
+    	for(short i=0; i<3; i++) {
+    		creditOnCard[i] = (byte) 0;
+    	}
+    	creditOnCard[(short) 3] = (byte) 100;
+    	
+    	
         //Do data allocations here.
         //someData = new byte[10]; // persistent data, stays on the card between resets
         //someData = JCSystem.makeTransientByteArray((short) 10, JCSystem.CLEAR_ON_RESET); // transient data, is cleared when the card is removed from the terminal.
@@ -156,7 +163,7 @@ public class RationingApplet extends Applet implements ISO7816 {
                 break;
             
             case 12:
-                if (oldState[0] != (short) 5) {
+                if (oldState[0] != (short) 5 && oldState[0] != (short) 12) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
                 pinStep(apdu, dataLength);
@@ -612,8 +619,12 @@ public class RationingApplet extends Applet implements ISO7816 {
         } else {
             notepad[0] = (pin.getTriesRemaining() == (byte) 0) ? (byte) 2 : (byte) 1;
         }
+        
+        for (short i = 0; i<4; i++) {
+        	notepad[(short) ( 1 + i)] = creditOnCard[i];
+        }
 
-        for (short i = 1; i < AES_KEY_BYTESIZE; i++) {
+        for (short i = 5; i < AES_KEY_BYTESIZE; i++) {
         	notepad[i] = 0;
         }
         
@@ -627,6 +638,7 @@ public class RationingApplet extends Applet implements ISO7816 {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
         apdu.setOutgoingLength(returnLength);
+        //buffer[(short)0] = creditOnCard[(short)3];
         apdu.sendBytes((short) 0, returnLength);
         
     }
@@ -645,32 +657,49 @@ public class RationingApplet extends Applet implements ISO7816 {
         short hashSize = aESCipher.doFinal(buffer, (short) (OFFSET_CDATA+AES_KEY_BYTESIZE), AES_KEY_BYTESIZE, notepad, creditSize);
 
         // Check if decrypted message has right size
-        if (hashSize != HASH_BYTESIZE || creditSize != (short) 4) {
+        if (hashSize != HASH_BYTESIZE || creditSize != (short) AES_KEY_BYTESIZE) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
+        
 
         // Check if received hashed credit equals actual hashed credit
-        hasher.doFinal(notepad, (short) 0, creditSize, notepad, (short) (HASH_BYTESIZE + creditSize));
+        hasher.reset();
+        hasher.doFinal(notepad, (short) 0, (short) 4, notepad, (short) (HASH_BYTESIZE + creditSize));
 
-        for (byte i = 0; i<HASH_BYTESIZE; i++){
+
+        
+        for (short i = 0; i<HASH_BYTESIZE; i++){
             if (notepad[(short) (i+creditSize)] != notepad[(short) (i+HASH_BYTESIZE+creditSize)]){
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
             }
         }
+       
 
         // Store new credit value
-        for (byte i = 0; i<creditSize; i++){
-            creditOnCard[i] = notepad[i];
+        for (short i = 3; i>=(short)0; i--){
+        	short temp = (short) (Util.makeShort((byte) 0, creditOnCard[i]) + Util.makeShort((byte) 0,notepad[i]));
+        	if (temp >= (short) 256) {
+        		creditOnCard[(short) (i-1)] = (byte) (creditOnCard[(short)(i-1)]+(byte)1);
+        	}
+        	creditOnCard[i] = (byte) temp;
         }
 
+        
         // Set APDU to response
-        buffer[0] = (byte) 1;
-
-        // AES encryption
-        aESCipher.init(symmetricKey, Cipher.MODE_ENCRYPT);
-        short outLength = aESCipher.doFinal(buffer, (short) 0, (short) 1, buffer, (short) 0);
-
         short returnLength = apdu.setOutgoing();
+        buffer[0] = (byte) 1;
+        for(short i=1; i< AES_KEY_BYTESIZE; i++) {
+        	buffer[i] = (byte) 0;
+        }
+        // AES encryption
+        short outLength =(short) 0;
+        try {
+            aESCipher.init(symmetricKey, Cipher.MODE_ENCRYPT);
+        	outLength = aESCipher.doFinal(buffer, (short) 0, (short) 16, buffer, (short) 0);
+        } catch(CryptoException e) {
+        	ISOException.throwIt(e.getReason());
+        }
+
         if (returnLength != outLength) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
@@ -799,7 +828,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         pin.update(buffer, (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + (short) (CERTIFICATE_BYTESIZE / 4)), (byte) 4);
 
         for (short i = 0; i < 4; i++) {
-            cardNumber[i] = buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + i + 4)];
+            cardNumber[i] = buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + (short) (CERTIFICATE_BYTESIZE /4) + i + 4)];
         }
         
         // Response (1 byte)

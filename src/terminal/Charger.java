@@ -16,6 +16,7 @@ import javax.smartcardio.CardException;
 
 import terminal.exception.CertificateGenerationException;
 import terminal.exception.IncorrectResponseCodeException;
+import terminal.util.ByteBuilder;
 import terminal.util.BytesHelper;
 import terminal.util.Util;
 
@@ -35,14 +36,18 @@ public class Charger extends TerminalWithPin {
 	@Override
 	protected void restOfTheCard(Card card, SecretKey aesKey, PublicKey publicC, int cardNumber, byte[] bs) throws CardException, GeneralSecurityException, IncorrectResponseCodeException {
 		int amountOnCard = BytesHelper.toInt(bs);
+		System.out.println("CardNumber: "+cardNumber);
+		System.out.println(BackEnd.getInstance().cardHolders.toString());
 		Account cardholder = BackEnd.getInstance().getAccount(cardNumber);
-		int amountRequested = getRequestedAmount(amountOnCard, cardholder);
-		byte[] requestMsg = Arrays.copyOf(BytesHelper.fromInt(amountRequested), Integer.BYTES+Util.HASH_LENGTH);
-		byte[] hash = Util.hash(BytesHelper.fromInt(amountRequested));
-		for(int i=0; i<hash.length; i++)
-			requestMsg[Integer.BYTES + i] = hash[i];
-		Account.testAccount.decreaseBy(amountRequested);
-		byte[] reply = Util.communicate(card, Step.Charge, Util.encryptAES(aesKey, requestMsg), 16);
+		byte[] amountRequested = BytesHelper.fromInt(getRequestedAmount(amountOnCard, cardholder));
+		ByteBuilder msg= new ByteBuilder(Util.AES_KEYSIZE/8*2);
+		msg.add(Util.encryptAES(aesKey, amountRequested)).add(Util.encryptAES(aesKey, Util.hash(amountRequested)));
+		Account.testAccount.decreaseBy(BytesHelper.toInt(amountRequested));
+		byte[] reply = Util.communicate(card, Step.Charge, msg.array, 16);
+		
+		for(byte b : Util.decryptAES(aesKey, reply)) {
+			System.out.print(b+",");
+		}
 		if (Util.decryptAES(aesKey, reply)[0] != TRANSFER_SUCCESSFUL)
 			throw new IncorrectResponseCodeException(TRANSFER_SUCCESSFUL);
 	}

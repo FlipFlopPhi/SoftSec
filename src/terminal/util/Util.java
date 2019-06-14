@@ -232,11 +232,12 @@ public final class Util {
 				msg[HASH_LENGTH+ i] = hash[i];
 			byte[] reply = decrypt(key, "AES/ECB/NoPadding",
 					communicate(card, Step.Pin, msg, 16));
-			//for(byte b:reply) {
-			//	System.out.print(b+", ");
-			//}
+			for(byte b:reply) {
+				System.out.print(b+", ");
+			}
 			if (reply[0] == PIN_SUCCESFUL) {
-				byte[] amountOnCard = Arrays.copyOfRange(reply, 1, reply.length);
+				byte[] amountOnCard = Arrays.copyOfRange(reply, 1, 5);
+				System.out.println(BytesHelper.toInt(amountOnCard));
 				terminal.showSucces();
 				return amountOnCard;
 			} else if (reply[0] == PIN_FAILED) {

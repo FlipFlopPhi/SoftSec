@@ -32,7 +32,7 @@ public class BackEnd {
 	private final static BackEnd instance = new BackEnd();
 	
 	private final Map<Integer,PublicKey> cardKeys;
-	private final Map<Integer, Account> cardHolders;
+	public final Map<Integer, Account> cardHolders;
 	private final PublicKey publicM;
 	private final PrivateKey privateM;
 	
