@@ -1,4 +1,5 @@
 package rationingapplet;
+
 import javacard.framework.*;
 import javacard.security.*;
 import javacardx.crypto.*;
@@ -28,6 +29,7 @@ public class RationingApplet extends Applet implements ISO7816 {
     private static short RSA_KEY_EXPONENTSIZE = 3;
     private static short AES_KEY_BYTESIZE = 16; // 128/8
     private static short DATE_BYTESIZE = 2;
+    private static short TRANSACTIONINFO_BYTESIZE = 16;
     private static short CERTIFICATE_BYTESIZE = 256;
     private static short CERTIFICATE_DECRYPTED_SIZE = 149;
     private static short HANDSHAKE_ONE_INPUT_LENGTH_MIN = 133;
@@ -715,53 +717,76 @@ public class RationingApplet extends Applet implements ISO7816 {
         byte[] buffer = apdu.getBuffer();
 
         // Check if encrypted message has right size
-        if (dataLength != (short) (AES_KEY_BYTESIZE*2)) {
+        if (dataLength != (short) (AES_KEY_BYTESIZE + RSA_KEY_MODULUSSIZE)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
         // AES decryption
         aESCipher.init(symmetricKey, Cipher.MODE_DECRYPT);
-        short msgSize = aESCipher.doFinal(buffer, OFFSET_CDATA, AES_KEY_BYTESIZE, notepad, (short) 0);
-        short hashSize = aESCipher.doFinal(buffer, (short) (OFFSET_CDATA+AES_KEY_BYTESIZE), AES_KEY_BYTESIZE, notepad, msgSize);
+        short msgSize = 0;
+        while (msgSize < dataLength) {
+        	try {
+        		msgSize += aESCipher.doFinal(buffer, (short) (OFFSET_CDATA + msgSize), AES_KEY_BYTESIZE, notepad, (short) msgSize);
+        	} catch (CryptoException e) {
+        		ISOException.throwIt(e.getReason());
+        	}
+        }
+        
+        if ((byte) msgSize != dataLength) {
+        	ISOException.throwIt(ISO7816.SW_DATA_INVALID);
+        }
+        
+        // Decrypt transaction info
+        rSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
+        short transactionSize = rSACipher.doFinal(notepad, (short) 0, RSA_KEY_MODULUSSIZE, notepad, (short) (msgSize));
+        
+        //short hashSize = aESCipher.doFinal(buffer, (short) (OFFSET_CDATA+AES_KEY_BYTESIZE), AES_KEY_BYTESIZE, notepad, msgSize);
 
         // Check if decrypted message has right size
-        if (msgSize != RSA_KEY_BYTESIZE || hashSize != HASH_BYTESIZE) {
+        if (transactionSize != TRANSACTIONINFO_BYTESIZE ) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
-        // Decrypt transaction info
-        rSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
-        short transactionSize = rSACipher.doFinal(notepad, (short) 0, msgSize, notepad, (short) (msgSize+HASH_BYTESIZE*2));
-
         // Check if received hashed transaction equals actual hashed transaction
-        hasher.doFinal(notepad, (short) (msgSize+HASH_BYTESIZE*2), transactionSize, notepad, (short) (msgSize+HASH_BYTESIZE));
+        hasher.doFinal(notepad, msgSize, transactionSize, notepad, (short) (msgSize+transactionSize));
 
         for (byte i = 0; i<HASH_BYTESIZE; i++){
-            if (notepad[(short) (msgSize+i)] != notepad[(short) (msgSize+HASH_BYTESIZE+i)]){
+            if (notepad[(short) (msgSize+i)] != notepad[(short) (msgSize+transactionSize+i)]){
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
             }
         }
 
-        
-        short overflow = 0;
+        //TODO check things in transactioninfo
+        // Saldo - change
+        byte overflow = 0;
         // Saldo change (first 4 bytes)
-        for (byte i = 3; i>=0; i--){
-            if (creditOnCard[i] > (short) (notepad[(short) (msgSize+HASH_BYTESIZE*2+i)] + overflow)){
-                creditOnCard[i] += (short) (10 - notepad[(short) (msgSize+HASH_BYTESIZE*2+i)] - overflow);
+        for (short i = 3; i>=0; i--){
+            if ((byte) (creditOnCard[i] - overflow) < (short) (notepad[(short) (msgSize+i)])){
+                byte temp = (byte) (notepad[(short) (msgSize+i)] - creditOnCard[i]); 
+                
+            	creditOnCard[i] = (byte) (255 - temp - overflow);
+            			//(short) (10 - notepad[(short) (msgSize+HASH_BYTESIZE*2+i)] - overflow);
                 overflow = 1;
             } else {
-                creditOnCard[i] -= notepad[(short) (msgSize+HASH_BYTESIZE*2+i)] - overflow;
+                creditOnCard[i] -= (notepad[(short) (msgSize+i)] + overflow);
                 overflow = 0;
             }
+        }
+        if (overflow == (byte) 1) {
+        	ISOException.throwIt(ISO7816.SW_DATA_INVALID);
         }
 
         // Outgoing: The original transaction info, encrypted with privateT, also encrypted with privateC
         rSACipher.init(cardPrivateKey,Cipher.MODE_ENCRYPT);
-        rSACipher.doFinal(notepad, (short) 0, msgSize, buffer, (short) 0);
-
+        short cipherSize = rSACipher.doFinal(notepad, (short) 0, (short) 117, notepad, (short) (RSA_KEY_BYTESIZE * 2));
+        cipherSize += rSACipher.doFinal(notepad, (short) 117, (short) 11, notepad, (short) ((RSA_KEY_BYTESIZE * 2) +117));
+        
         // AES encryption
         aESCipher.init(symmetricKey, Cipher.MODE_ENCRYPT);
-        short outLength = aESCipher.doFinal(buffer, (short) 0, RSA_KEY_BYTESIZE, buffer, (short) 0);
+        short outLength = 0;
+        while (outLength != cipherSize) {
+        	outLength += aESCipher.doFinal(notepad, (short) ((RSA_KEY_BYTESIZE * 2) + outLength), AES_KEY_BYTESIZE, buffer, (short) (0 + outLength));
+        }
 
         short returnLength = apdu.setOutgoing();
         if (returnLength != outLength) {

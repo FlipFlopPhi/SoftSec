@@ -63,7 +63,7 @@ public class MainTest {
 			return;
 		}
 		try {
-			TerminalWithPin terminal = new Charger();
+			TerminalWithPin terminal = new Pumper();
 			while(TerminalFactory.getDefault().terminals().list().size() == 0) {}
 			try {
 				
