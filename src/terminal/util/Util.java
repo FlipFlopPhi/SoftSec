@@ -101,21 +101,21 @@ public final class Util {
 			byte[] certificateC1 = new byte[128];
 			for (int i= 0; i<64;i++) {
 				certificateC1[i] = reply[4+1+128+i];
-				System.out.print(certificateC1[i]);
-				System.out.println("," + MainTest.certificateC[i]);
+				//System.out.print(certificateC1[i]);
+				//System.out.println("," + MainTest.certificateC[i]);
 			}
 			for (int i = 0; i < 64; i++) {
 				certificateC1[64+i] = reply2[i];
-				System.out.print(certificateC1[64+i]);
-				System.out.println("," + MainTest.certificateC[64+i]);
+				//System.out.print(certificateC1[64+i]);
+				//System.out.println("," + MainTest.certificateC[64+i]);
 			}
 			certificateC1 = decrypt(publicM, certificateC1);
 			
 			byte[] certificateC2 = new byte[128];
 			for (int i = 0; i < 128; i++) {
 				certificateC2[i] = reply2[64 + i];
-				System.out.print(certificateC2[i]);
-				System.out.println("," + MainTest.certificateC[128+i]);
+				//System.out.print(certificateC2[i]);
+				//System.out.println("," + MainTest.certificateC[128+i]);
 			}
 			certificateC2 = decrypt(publicM,certificateC2);
 			
@@ -169,9 +169,9 @@ public final class Util {
 			System.out.println("repluy: "+checkSum(reply));
 			returnedSeqNr = BytesHelper.toShort(Arrays.copyOfRange(decrypt(aesKey, "AES/ECB/NoPadding", reply),4,6));
 			System.out.println(checkSum(reply = decrypt(aesKey, "AES/ECB/NoPadding", reply)));
-			for(byte b : reply) {
-				System.out.print(b+" ,");
-			}
+			//for(byte b : reply) {
+			//	System.out.print(b+" ,");
+			//}
 			/*if (returnedSeqNr != (short) Math.floorMod(R + 3 * randomIncrement, 2 ^ 15))
 				throw new IncorrectSequenceNumberException();*/
 			return new Triple<SecretKey, PublicKey, Integer>(aesKey, publicC, Integer.valueOf(cardNumber));
@@ -223,13 +223,19 @@ public final class Util {
 			byte[] msg = Arrays.copyOf(encryptAES(key,pin), 2*HASH_LENGTH);// Copy the pin, leaving room for the hash of the
 																		// pin.
 			byte[] hash = encryptAES(key,hash(pin));
+			//byte[] hash = encryptAES(key,hash(new byte[64]));
+			System.out.print("hash: ");
+			for (byte b : hash(pin)) {
+				System.out.print(String.format("%02x,", b));
+			}
+			System.out.println(".");
 			for (int i = 0; i < HASH_LENGTH; i++)
 				msg[HASH_LENGTH+ i] = hash[i];
 			byte[] reply = decrypt(key, "AES/ECB/NoPadding",
 					communicate(card, Step.Pin, msg, 16));
-			for(byte b:reply) {
-				System.out.print(b+", ");
-			}
+			//for(byte b:reply) {
+			//	System.out.print(b+", ");
+			//}
 			if (reply[0] == PIN_SUCCESFUL) {
 				byte[] amountOnCard = Arrays.copyOfRange(reply, 1, reply.length);
 				terminal.showSucces();

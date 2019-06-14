@@ -586,20 +586,25 @@ public class RationingApplet extends Applet implements ISO7816 {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         	//ISOException.throwIt((short)123);
         }
-
+        
+        
         // Check if received hashed pin equals actual hashed credit
-        hashSize = hasher.doFinal(notepad, (short) 0, pinSize, notepad, (short) (HASH_BYTESIZE + pinSize));
+        //hasher.reset();
+        hashSize = hasher.doFinal(notepad, (short) 0, (short) 4, notepad, (short) (HASH_BYTESIZE + pinSize));
 
         if (hashSize != HASH_BYTESIZE) {
         	ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
         
+        
         for (short i = 0; i<HASH_BYTESIZE; i++){
             if (notepad[(short) (i + pinSize)] != notepad[(short) (i+HASH_BYTESIZE+pinSize)]){
-                //ISOException.throwIt(Util.makeShort(notepad[2], notepad[3]));
+                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+            	//ISOException.throwIt(Util.makeShort(notepad[(short) (i + pinSize)], notepad[(short) (i+HASH_BYTESIZE+pinSize)]));
+            	//TODO uitvinden waarom dit niet werkt
             }
         }
-
+        
         // Check if received pin equals stored pin
         // SUCCESS = 0, FAIL = 1, BLOCK = 2
         if (pin.check(notepad, (short) 0, (byte) 4)){
@@ -623,6 +628,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         }
         apdu.setOutgoingLength(returnLength);
         apdu.sendBytes((short) 0, returnLength);
+        
     }
 
     private void chargeStep (APDU apdu, byte dataLength) {
