@@ -43,7 +43,7 @@ public abstract class TerminalWithPin implements Pinnable {
 	protected final View output;
 	protected final Controller input;
 
-	private final PrivateKey privateT;
+	protected final PrivateKey privateT;
 	private final byte[] certificateT;
 	public final int terminalNumber;
 
