@@ -158,9 +158,6 @@ public final class Util {
 			// Send + Response
 			byte[] blockT = encrypt(privateT, keyMsg);
 			
-			System.out.println("tmod: " + checkSum(((RSAPublicKey) MainTest.publicT).getModulus().toByteArray()));
-			System.out.println("texp: " + checkSum(((RSAPublicKey) MainTest.publicT).getPublicExponent().toByteArray()));
-			
 			communicate(card, Step.Handshake4, encrypt(publicC, Arrays.copyOf(blockT, 117)), 1);
 
 			reply = communicate(card, Step.Handshake5, encrypt(publicC, Arrays.copyOfRange(blockT, 117, 128)), 16);

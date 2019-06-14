@@ -89,7 +89,6 @@ public class Personalizer {
 			
 			byte[] certificateC; try {
 				certificateC = BackEnd.getInstance().requestCertificate((RSAPublicKey)kp.getPublic());
-				MainTest.certificateC = certificateC;
 
 			} catch (GeneralSecurityException e) {
 				e.printStackTrace();

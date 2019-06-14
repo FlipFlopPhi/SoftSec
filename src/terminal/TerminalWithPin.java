@@ -59,7 +59,6 @@ public abstract class TerminalWithPin implements Pinnable {
 		// TODO: THIS IS NOW HARDCODED DO NOT RELEASE THIS CODE
 		KeyPair kp = generator.generateKeyPair();
 		privateT = kp.getPrivate();
-		MainTest.publicT = kp.getPublic();
 		try {
 			certificateT = BackEnd.getInstance().requestCertificate((RSAPublicKey) kp.getPublic());
 		} catch (GeneralSecurityException e) {
@@ -76,7 +75,9 @@ public abstract class TerminalWithPin implements Pinnable {
 	@Override
 	public byte[] enterPin() throws InvalidPinException {
 		output.println("Please enter your pin");
-		int pin = input.nextInt();
+		//int pin = input.nextInt();
+		//TODO actually om pin vragen
+		int pin = 1234;
 		if (pin < 0 | pin >= 10000) {
 			System.out.println("Not a valid pin");
 			throw new InvalidPinException(pin);

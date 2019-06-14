@@ -715,16 +715,15 @@ public class RationingApplet extends Applet implements ISO7816 {
         // and H(Transaction Info)
         // The entire things is encrypted with the AES key
         byte[] buffer = apdu.getBuffer();
-
         // Check if encrypted message has right size
-        if (dataLength != (short) (AES_KEY_BYTESIZE + RSA_KEY_MODULUSSIZE)) {
+        if (Util.makeShort((byte) 0, dataLength) != (short) (AES_KEY_BYTESIZE + RSA_KEY_MODULUSSIZE)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
         // AES decryption
         aESCipher.init(symmetricKey, Cipher.MODE_DECRYPT);
         short msgSize = 0;
-        while (msgSize < dataLength) {
+        while (msgSize < Util.makeShort((byte) 0, dataLength)) {
         	try {
         		msgSize += aESCipher.doFinal(buffer, (short) (OFFSET_CDATA + msgSize), AES_KEY_BYTESIZE, notepad, (short) msgSize);
         	} catch (CryptoException e) {
@@ -733,13 +732,32 @@ public class RationingApplet extends Applet implements ISO7816 {
         }
         
         if ((byte) msgSize != dataLength) {
-        	ISOException.throwIt(ISO7816.SW_DATA_INVALID);
+        	ISOException.throwIt(msgSize);
         }
+        
+        /*
+        short returnLength = apdu.setOutgoing();
+        if (returnLength != (short) 256) {
+            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        
+        apdu.setOutgoingLength(returnLength);
+        for (short i = 0; i < msgSize; i++) {
+        	buffer[(short) i] = notepad[(short) i];
+        }
+        
+        apdu.sendBytes((short) 0, returnLength);
+        return;  */
+        
         
         // Decrypt transaction info
         rSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
-        short transactionSize = rSACipher.doFinal(notepad, (short) 0, RSA_KEY_MODULUSSIZE, notepad, (short) (msgSize));
-        
+        short transactionSize = 0;
+        try {
+        	transactionSize = rSACipher.doFinal(notepad, (short) 0, RSA_KEY_MODULUSSIZE, notepad, (short) (msgSize));
+        } catch (CryptoException e) {
+        	ISOException.throwIt(e.getReason());
+        }
         //short hashSize = aESCipher.doFinal(buffer, (short) (OFFSET_CDATA+AES_KEY_BYTESIZE), AES_KEY_BYTESIZE, notepad, msgSize);
 
         // Check if decrypted message has right size
@@ -751,7 +769,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         hasher.doFinal(notepad, msgSize, transactionSize, notepad, (short) (msgSize+transactionSize));
 
         for (byte i = 0; i<HASH_BYTESIZE; i++){
-            if (notepad[(short) (msgSize+i)] != notepad[(short) (msgSize+transactionSize+i)]){
+            if (notepad[(short) (msgSize-HASH_BYTESIZE+i)] != notepad[(short) (msgSize+transactionSize+i)]){
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
             }
         }
@@ -779,7 +797,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         // Outgoing: The original transaction info, encrypted with privateT, also encrypted with privateC
         rSACipher.init(cardPrivateKey,Cipher.MODE_ENCRYPT);
         short cipherSize = rSACipher.doFinal(notepad, (short) 0, (short) 117, notepad, (short) (RSA_KEY_BYTESIZE * 2));
-        cipherSize += rSACipher.doFinal(notepad, (short) 117, (short) 11, notepad, (short) ((RSA_KEY_BYTESIZE * 2) +117));
+        cipherSize += rSACipher.doFinal(notepad, (short) 117, (short) 11, notepad, (short) ((RSA_KEY_BYTESIZE * 2) +128));
         
         // AES encryption
         aESCipher.init(symmetricKey, Cipher.MODE_ENCRYPT);
