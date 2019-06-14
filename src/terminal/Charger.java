@@ -55,16 +55,14 @@ public class Charger extends TerminalWithPin {
 	 */
 	private int getRequestedAmount(int amountOnCard, Account account) {
 		int max = Math.min(MAXIMUM_ALLOWED_CREDIT_STORED-amountOnCard,account.getCreditStored());
-		System.out.println("Please input the amount of credit [0,"+max+"] you want to move to your card.\n"
+		output.println("Please input the amount of credit [0,"+max+"] you want to move to your card.\n"
 				+"Amount stored on account = "+account.getCreditStored()+" Creds\n"
 				+"Amount stored on card = "+amountOnCard+" Creds");
-		Scanner scanner = new Scanner(System.in);
-		int userInput = scanner.nextInt();
+		int userInput = input.nextInt();
 		while( userInput <0 || userInput > max) {
-			System.out.println("It seems you have entered an invalid amount. \n Please try again.");
-			userInput = scanner.nextInt();
+			output.println("It seems you have entered an invalid amount. \n Please try again.");
+			userInput = input.nextInt();
 		}
-		scanner.close();
 		return userInput;
 	}
 
