@@ -217,7 +217,6 @@ public final class Util {
 			try {
 				pin = terminal.enterPin();
 			} catch (InvalidPinException e) {
-				e.printStackTrace();
 				continue;
 			}
 			byte[] msg = Arrays.copyOf(encryptAES(key,pin), 2*HASH_LENGTH);// Copy the pin, leaving room for the hash of the
