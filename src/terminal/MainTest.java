@@ -12,6 +12,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.spec.RSAKeyGenParameterSpec;
 
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 import javax.smartcardio.CardException;
 import javax.smartcardio.TerminalFactory;
 
@@ -38,23 +40,28 @@ public class MainTest {
 		/*byte[] testArray = new byte[128];
 		testArray[0] = 5;
 		try {
-			KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-			generator.initialize(new RSAKeyGenParameterSpec(Util.MODULUS_LENGTH*8, BigInteger.valueOf(65537)));
-			KeyPair kp = generator.generateKeyPair();
+			KeyGenerator generator = KeyGenerator.getInstance("AES");
+			generator.init(Util.AES_KEYSIZE); // advanced Encryption Standard as specified by NIST in FIPS 197.
+			SecretKey aesKey = generator.generateKey();
 			try {
-				
-				byte[] intermediate = Util.encrypt(kp.getPrivate(),testArray);
+				byte[] intermediate = Util.encryptAES(aesKey,new byte[17]);
+				for(byte b : intermediate) {
+					System.out.print(b+",");
+				}
 				System.out.println("Whaaat?:" +intermediate.length);
-				System.out.println("Okay!:" + Util.decrypt(kp.getPublic(), intermediate).length);
+				System.out.println("Okay!:" + Util.decryptAES(aesKey, intermediate).length);
+				for(byte b : Util.decryptAES(aesKey, intermediate)) {
+					System.out.print(b+",");
+				}
 			} catch (GeneralSecurityException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-		} catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException e1) {
+		} catch (NoSuchAlgorithmException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
-		}
-		*/
+		}*/
+		
 		try {
 			Personalizer.personalize();
 		} catch (FailedPersonalizationException e1) {

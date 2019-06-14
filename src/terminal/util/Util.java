@@ -315,10 +315,15 @@ public final class Util {
 	
 	public static byte[] encryptAES(SecretKey secretKey, byte[] message) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 		Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
-		
 		cipher.init(Cipher.ENCRYPT_MODE, secretKey);
 		
-		return cipher.doFinal(Arrays.copyOf(message, 16));
+		ByteBuilder output = new ByteBuilder(16*(int) Math.ceil(message.length/16f));
+		for(int chunk=0; chunk< Math.ceil(message.length/16f); chunk++) {
+			output.add(cipher.doFinal(Arrays.copyOfRange(message, 16*chunk, 16*(chunk+1))) );
+			
+		}
+		
+		return output.array;
 	}
 
 
@@ -343,8 +348,15 @@ public final class Util {
 	public static byte[] decryptAES(Key secretKey, byte[] message) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 		Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
 		cipher.init(Cipher.DECRYPT_MODE, secretKey);
-
-		return cipher.doFinal(message);
+		
+		ByteBuilder output = new ByteBuilder(message.length);
+		
+		for(int chunk=0; chunk < message.length/16f; chunk++) {
+			output.add(cipher.doFinal(Arrays.copyOfRange(message, 16*chunk, 16*(chunk+1))) );
+			
+		}
+		
+		return output.array;
 	}
 	
 
