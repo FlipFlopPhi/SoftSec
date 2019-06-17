@@ -83,7 +83,8 @@ public final class Util {
 			throws IncorrectSequenceNumberException, GeneralSecurityException, CardException, IncorrectAckException, MismatchedHashException {
 		// Generate SequenceNumber first
 		Random rngsusXSuperStar = new Random();
-		final short R = (short) rngsusXSuperStar.nextInt((int) Math.pow(2, 15));
+		final int modulus = (int) Math.pow(2,15);
+		final short R = (short) rngsusXSuperStar.nextInt(modulus);
 
 		// Generate the initial handshake message (The Hello)
 		ByteBuilder initMsg = new ByteBuilder(1 + 1 + versions.length + 2 + 128);
@@ -132,7 +133,7 @@ public final class Util {
 			byte[] sequenceNumberEncrypted = Arrays.copyOfRange(reply, CARDNUMBER_BYTESIZE + 1,
 					CARDNUMBER_BYTESIZE + 1 + 128);
 			short returnedSeqNr = BytesHelper.toShort(decrypt(publicC, sequenceNumberEncrypted));
-			short randomIncrement = (short) Math.floorMod(returnedSeqNr - R, 2 ^ 15);
+			short randomIncrement = (short) Math.floorMod(returnedSeqNr - R, modulus);
 
 			// TODO: check the certificate's date. and checksum the hash
 
@@ -141,7 +142,7 @@ public final class Util {
 			generator.init(AES_KEYSIZE); // advanced Encryption Standard as specified by NIST in FIPS 197.
 			SecretKey aesKey = generator.generateKey();
 			byte[] keyMsg = Arrays.copyOf(aesKey.getEncoded(), AES_KEYSIZE / 8 + 2);
-			byte[] incrementedR = BytesHelper.fromShort((short) Math.floorMod(R + 2 * randomIncrement, 2 ^ 15));
+			byte[] incrementedR = BytesHelper.fromShort((short) Math.floorMod(R + 2 * randomIncrement, modulus));
 			keyMsg[AES_KEYSIZE / 8] = incrementedR[0];
 			keyMsg[AES_KEYSIZE / 8 + 1] = incrementedR[1];
 			// Send + Response
