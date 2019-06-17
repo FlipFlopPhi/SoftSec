@@ -779,13 +779,15 @@ public class RationingApplet extends Applet implements ISO7816 {
 
         //TODO check things in transactioninfo
         // Saldo - change
-        byte overflow = 0;
+        short overflow = 0;
         // Saldo change (first 4 bytes)
         for (short i = 3; i>=0; i--){
-            if ((byte) (creditOnCard[i] - overflow) < (short) (notepad[(short) (msgSize+i)])){
+            //if (((byte) (creditOnCard[i] - overflow)) < ((byte) (notepad[(short) (msgSize+i)]))){
+            if ((short) (Util.makeShort((byte) 0, creditOnCard[i]) - overflow) < Util.makeShort((byte) 0, notepad[(short) (msgSize+i)])) {
+            	//ISOException.throwIt(Util.makeShort((byte) (creditOnCard[i] - overflow), (byte) (notepad[(short) (msgSize+i)])));
                 byte temp = (byte) (notepad[(short) (msgSize+i)] - creditOnCard[i]); 
                 
-            	creditOnCard[i] = (byte) (255 - temp - overflow);
+            	creditOnCard[i] = (byte) (256 - temp - overflow);
             			//(short) (10 - notepad[(short) (msgSize+HASH_BYTESIZE*2+i)] - overflow);
                 overflow = 1;
             } else {
@@ -845,7 +847,6 @@ public class RationingApplet extends Applet implements ISO7816 {
     	try {
     		cardPrivateKey.setExponent(buffer, OFFSET_CDATA, Util.makeShort((byte) 0, dataLength));
     	} catch (CryptoException e) {
-    		ISOException.throwIt((short) 123);
         	ISOException.throwIt(e.getReason());
         }
     	// Response (1 byte)

@@ -1,6 +1,13 @@
 package terminal;
 
-public class Account {
+import java.io.Serializable;
+
+public class Account implements Serializable{
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1200147919157742650L;
 
 	static final Account testAccount = new Account();
 
