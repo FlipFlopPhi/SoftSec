@@ -16,6 +16,7 @@ import java.security.interfaces.RSAPublicKey;
 import java.security.spec.RSAKeyGenParameterSpec;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Random;
 import java.util.Scanner;
 import java.util.TimeZone;
 
@@ -47,7 +48,7 @@ public class Personalizer {
 			Util.sendSelect(card);
 			
 			int pin = 1234;
-			int cardNumber = 0;
+			int cardNumber = new Random().nextInt();
 			/*
 			System.out.println("Is this a new Account? (Y/N)");
 			Scanner scanner = new Scanner(System.in);

@@ -37,7 +37,6 @@ public class Charger extends TerminalWithPin {
 	protected void restOfTheCard(Card card, SecretKey aesKey, PublicKey publicC, int cardNumber, byte[] bs) throws CardException, GeneralSecurityException, IncorrectResponseCodeException {
 		int amountOnCard = BytesHelper.toInt(bs);
 		System.out.println("CardNumber: "+cardNumber);
-		System.out.println(BackEnd.getInstance().cardHolders.toString());
 		Account cardholder = BackEnd.getInstance().getAccount(cardNumber);
 		byte[] amountRequested = BytesHelper.fromInt(getRequestedAmount(amountOnCard, cardholder));
 		ByteBuilder msg= new ByteBuilder(Util.AES_KEYSIZE/8*2);
