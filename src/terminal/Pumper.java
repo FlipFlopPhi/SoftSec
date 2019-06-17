@@ -85,7 +85,10 @@ public class Pumper extends TerminalWithPin {
 	 * @return
 	 */
 	private boolean isTankFull() {
-		// TODO Auto-generated method stub
+		output.println("Ïs the tank full?");
+		if (input.nextInt() == 1) {
+			return true;
+		}
 		return false;
 	}
 

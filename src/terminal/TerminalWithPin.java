@@ -103,6 +103,8 @@ public abstract class TerminalWithPin implements Pinnable {
 			IncorrectResponseCodeException, CardBlockedException, IncorrectCertificateException, IncorrectAckException, MismatchedHashException {
 		CardTerminal reader = TerminalFactory.getDefault().terminals().list().get(0);
 		Card card = reader.connect("*");
+		Util.sendSelect(card);
+		
 		Triple<SecretKey, PublicKey, Integer> keys = Util.handSjaak(card, type, supportedCardVersions, certificateT,
 				publicM, privateT);
 		SecretKey aesKey = keys.first;

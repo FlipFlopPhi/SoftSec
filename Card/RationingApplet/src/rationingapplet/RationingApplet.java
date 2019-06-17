@@ -845,6 +845,7 @@ public class RationingApplet extends Applet implements ISO7816 {
     	try {
     		cardPrivateKey.setExponent(buffer, OFFSET_CDATA, Util.makeShort((byte) 0, dataLength));
     	} catch (CryptoException e) {
+    		ISOException.throwIt((short) 123);
         	ISOException.throwIt(e.getReason());
         }
     	// Response (1 byte)

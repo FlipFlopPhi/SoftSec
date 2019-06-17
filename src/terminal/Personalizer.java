@@ -44,8 +44,7 @@ public class Personalizer {
 			reader = TerminalFactory.getDefault().terminals().list().get(0);
 			Card card = reader.connect("*");
 
-			byte[] APP_ID = {(byte) 0x12, (byte) 0x34, (byte) 0x56, (byte) 0x78, (byte) 0x90, (byte) 0xab, };
-			ResponseAPDU response = card.getBasicChannel().transmit(new CommandAPDU((byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, APP_ID));
+			Util.sendSelect(card);
 			
 			int pin = 1234;
 			int cardNumber = 0;

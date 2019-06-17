@@ -276,6 +276,20 @@ public final class Util {
 		throw new CardException("Response Error returned" + response.getSW1() + "," + response.getSW2());
 	}
 
+	public static void sendSelect(Card card) throws CardException {
+		CardChannel cardChan = card.getBasicChannel();
+		byte[] APP_ID = {(byte) 0x12, (byte) 0x34, (byte) 0x56, (byte) 0x78, (byte) 0x90, (byte) 0xab, };
+		
+		ResponseAPDU response = cardChan.transmit(new CommandAPDU((byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, APP_ID));
+		
+		int sw1 = response.getSW1();
+		if (sw1 == 0x61 | sw1 == 0x90) {
+			System.out.println("Select succeeded");
+			return;
+		}
+		throw new CardException("Select failed, Response Error returned" + response.getSW1() + "," + response.getSW2());
+	}
+	
 	/**
 	 * @author https://gist.github.com/dmydlarz/32c58f537bb7e0ab9ebf
 	 * @param privateKey
