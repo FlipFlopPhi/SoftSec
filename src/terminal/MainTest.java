@@ -3,26 +3,14 @@
  */
 package terminal;
 
-import java.math.BigInteger;
 import java.security.GeneralSecurityException;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.security.spec.RSAKeyGenParameterSpec;
-
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-import javax.smartcardio.CardException;
-import javax.smartcardio.TerminalFactory;
+import java.util.Scanner;
 
 import terminal.exception.CardBlockedException;
 import terminal.exception.FailedPersonalizationException;
 import terminal.exception.IncorrectCertificateException;
 import terminal.exception.IncorrectResponseCodeException;
 import terminal.exception.IncorrectSequenceNumberException;
-import terminal.util.Util;
 
 /**
  * @author pspaendonck
@@ -34,27 +22,59 @@ public class MainTest {
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		try {
-			Personalizer.personalize();
-		} catch (FailedPersonalizationException e1) {
-			System.err.println("Personalization failed \n" + e1.getLocalizedMessage());
-			e1.printStackTrace();
-			return;
-		}
-		try {
-			TerminalWithPin terminal = new Charger();
-			while (TerminalFactory.getDefault().terminals().list().size() == 0) {
-			}
-			try {
+		Scanner scanner = new Scanner(System.in);
+		/*
+		 * System.out.println("Waiting for cardreader ..."); while
+		 * (TerminalFactory.getDefault().terminals().list().size() == 0) {}
+		 * System.out.println("Cardreader detected");
+		 */
+		loop: while (true) {
+			System.out.println("Personalize? (1), Charger (2), Pump (3), quit (anything else)");
+			int choice = scanner.nextInt();
+			switch (choice) {
+			case 1:
+				try {
+					Personalizer.personalize();
+				} catch (FailedPersonalizationException e1) {
+					System.err.println("Personalization failed \n" + e1.getLocalizedMessage());
+					e1.printStackTrace();
+					return;
+				}
+				break;
 
-				terminal.initCommunications();
-			} catch (IncorrectSequenceNumberException | GeneralSecurityException | IncorrectResponseCodeException
-					| CardBlockedException | IncorrectCertificateException e) {
-				e.printStackTrace();
+			case 2:
+				try {
+					TerminalWithPin terminal = new Charger();
+
+					try {
+						terminal.initCommunications();
+					} catch (IncorrectSequenceNumberException | GeneralSecurityException
+							| IncorrectResponseCodeException | CardBlockedException | IncorrectCertificateException e) {
+						e.printStackTrace();
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				break;
+
+			case 3:
+				try {
+					TerminalWithPin terminal = new Pumper();
+
+					try {
+						terminal.initCommunications();
+					} catch (IncorrectSequenceNumberException | GeneralSecurityException
+							| IncorrectResponseCodeException | CardBlockedException | IncorrectCertificateException e) {
+						e.printStackTrace();
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				break;
+			default:
+				break loop;
 			}
-		} catch (Exception e) {
-			e.printStackTrace();
 		}
+		scanner.close();
 	}
-
 }

@@ -95,7 +95,7 @@ public final class Util {
 				throw new IncorrectAckException();
 			byte[] reply = communicate(card, Step.Handshake2,
 					Arrays.copyOfRange(certificateT, 128, CERTIFICATE_BYTESIZE), CARDNUMBER_BYTESIZE + 1 + 128 + 64);
-			int cardNumber = (reply[0] * 2 ^ 24) + reply[1] * 2 ^ 16 + reply[2] * 2 ^ 8 + reply[3];
+			int cardNumber = BytesHelper.toInt(Arrays.copyOf(reply,4));
 			byte version = reply[CARDNUMBER_BYTESIZE];
 			// TODO: Make support for version handling of card and terminal on the
 			// terminalside.
