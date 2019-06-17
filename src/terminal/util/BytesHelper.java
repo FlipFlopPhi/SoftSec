@@ -1,6 +1,8 @@
 package terminal.util;
 
 import java.nio.ByteBuffer;
+import java.security.PrivateKey;
+import java.security.interfaces.RSAPrivateKey;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.TimeZone;
@@ -15,7 +17,7 @@ public final class BytesHelper {
 	public static int toInt( byte[] bytes ) {
 	    int result = 0;
 	    for (int i=0; i<4; i++) {
-	    	result = ( result << 8 ) - Byte.MIN_VALUE + (int) bytes[i];
+	    	result += ( (bytes[i] & 0xff) << 8*(3-i) );
 	    }
 	    return result;
 	}
@@ -23,7 +25,7 @@ public final class BytesHelper {
 	public static short toShort(byte[] bytes) {
 		short result = 0;
 	    for (int i=0; i<2; i++) {
-	    	result = (short) (( result << 8 ) - Byte.MIN_VALUE + (short) bytes[i]);
+	    	result += ( bytes[i] << 8*(2-i) );
 	    }
 	    return result;
 	}
@@ -59,6 +61,18 @@ public final class BytesHelper {
 
 	public static byte[] fromInt(int integer) {
 		return ByteBuffer.allocate(Integer.BYTES).putInt(integer).array();
+	}
+
+	public static byte[] fromPrivateKey(RSAPrivateKey privateKey) {
+		System.out.println(privateKey.getModulus().compareTo( privateKey.getPrivateExponent()));
+		byte[] exponent = privateKey.getPrivateExponent().toByteArray();
+		System.out.println(exponent.length);
+		byte[] key = Arrays.copyOf(privateKey.getModulus().toByteArray(),128+exponent.length);
+		for(int i=0; i<exponent.length; i++) {
+			key[128+i] = exponent[i];
+		}
+		System.out.println(key.length);
+		return key;
 	}
 }
   

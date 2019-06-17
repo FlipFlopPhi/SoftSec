@@ -16,6 +16,7 @@ import javax.smartcardio.CardException;
 
 import terminal.exception.CertificateGenerationException;
 import terminal.exception.IncorrectResponseCodeException;
+import terminal.util.ByteBuilder;
 import terminal.util.BytesHelper;
 import terminal.util.Util;
 
@@ -35,15 +36,19 @@ public class Charger extends TerminalWithPin {
 	@Override
 	protected void restOfTheCard(Card card, SecretKey aesKey, PublicKey publicC, int cardNumber, byte[] bs) throws CardException, GeneralSecurityException, IncorrectResponseCodeException {
 		int amountOnCard = BytesHelper.toInt(bs);
+		System.out.println("CardNumber: "+cardNumber);
+		System.out.println(BackEnd.getInstance().cardHolders.toString());
 		Account cardholder = BackEnd.getInstance().getAccount(cardNumber);
-		int amountRequested = getRequestedAmount(amountOnCard, cardholder);
-		byte[] requestMsg = Arrays.copyOf(BytesHelper.fromInt(amountRequested), Integer.BYTES+Util.HASH_LENGTH);
-		byte[] hash = Util.hash(BytesHelper.fromInt(amountRequested));
-		for(int i=0; i<hash.length; i++)
-			requestMsg[Integer.BYTES + i] = hash[i];
-		Account.testAccount.decreaseBy(amountRequested);
-		byte[] reply = Util.communicate(card, Step.Charge, Util.encrypt(aesKey, "AES", requestMsg), 16);
-		if (Util.decrypt(aesKey, "AES", reply)[0] != TRANSFER_SUCCESSFUL)
+		byte[] amountRequested = BytesHelper.fromInt(getRequestedAmount(amountOnCard, cardholder));
+		ByteBuilder msg= new ByteBuilder(Util.AES_KEYSIZE/8*2);
+		msg.add(Util.encryptAES(aesKey, amountRequested)).add(Util.encryptAES(aesKey, Util.hash(amountRequested)));
+		Account.testAccount.decreaseBy(BytesHelper.toInt(amountRequested));
+		byte[] reply = Util.communicate(card, Step.Charge, msg.array, 16);
+		
+		for(byte b : Util.decryptAES(aesKey, reply)) {
+			System.out.print(b+",");
+		}
+		if (Util.decryptAES(aesKey, reply)[0] != TRANSFER_SUCCESSFUL)
 			throw new IncorrectResponseCodeException(TRANSFER_SUCCESSFUL);
 	}
 
@@ -55,16 +60,14 @@ public class Charger extends TerminalWithPin {
 	 */
 	private int getRequestedAmount(int amountOnCard, Account account) {
 		int max = Math.min(MAXIMUM_ALLOWED_CREDIT_STORED-amountOnCard,account.getCreditStored());
-		System.out.println("Please input the amount of credit [0,"+max+"] you want to move to your card.\n"
+		output.println("Please input the amount of credit [0,"+max+"] you want to move to your card.\n"
 				+"Amount stored on account = "+account.getCreditStored()+" Creds\n"
 				+"Amount stored on card = "+amountOnCard+" Creds");
-		Scanner scanner = new Scanner(System.in);
-		int userInput = scanner.nextInt();
+		int userInput = input.nextInt();
 		while( userInput <0 || userInput > max) {
-			System.out.println("It seems you have entered an invalid amount. \n Please try again.");
-			userInput = scanner.nextInt();
+			output.println("It seems you have entered an invalid amount. \n Please try again.");
+			userInput = input.nextInt();
 		}
-		scanner.close();
 		return userInput;
 	}
 

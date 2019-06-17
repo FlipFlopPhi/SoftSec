@@ -40,18 +40,18 @@ public class ByteBuilder {
 	public ByteBuilder add(short value) {
 		return this.add(BytesHelper.fromShort(value));
 	}
+	
+	public ByteBuilder add(byte b) {
+		array[top++] = b;
+		return this;
+	}
 
 	public ByteBuilder addPublicRSAKey(RSAPublicKey rsaPublicKey) {
-		return this.add(Arrays.copyOf(rsaPublicKey.getModulus().toByteArray(),125))
+		return this.add(Arrays.copyOfRange(rsaPublicKey.getModulus().toByteArray(),1,1+Util.MODULUS_LENGTH))
 				.add(Arrays.copyOf(rsaPublicKey.getPublicExponent().toByteArray(),3));
 	}
 	
 	public int getTop() {return top;}
-
-	public ByteBuilder addPrivateRSAKey(RSAPrivateKey rsaPrivateKey) {
-		return this.add(Arrays.copyOf(rsaPrivateKey.getModulus().toByteArray(), 125))
-				.add(Arrays.copyOf(rsaPrivateKey.getPrivateExponent().toByteArray(),3));
-	}
 
 
 	

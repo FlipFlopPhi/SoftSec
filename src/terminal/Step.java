@@ -5,12 +5,14 @@ public enum Step {
 	,Handshake2((short)2)
 	,Handshake3((short)3)
 	,Handshake4((short)4)
-	,Pin((short)5)
+	,Handshake5((short)5)
+	,Pin((short)12)
 	,Charge((short)6)
 	,Pump1((short)7)
 	,Personalize((short)8)
 	,Personalize2((short)9)
-	,Personalize3((short)10);
+	,Personalize3((short)10)
+	, Personalize4((short)11);
 	
 	
 	public final byte P1;

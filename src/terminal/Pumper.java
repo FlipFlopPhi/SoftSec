@@ -27,7 +27,8 @@ public class Pumper extends TerminalWithPin {
 
 	public final static int DECREMENT_AMOUNT = 3;
 
-	public Pumper() throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, CertificateGenerationException {
+	public Pumper()
+			throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, CertificateGenerationException {
 		super(TerminalType.PUMP);
 	}
 
@@ -39,17 +40,31 @@ public class Pumper extends TerminalWithPin {
 		while (!isTankFull() & amountOnCard >= DECREMENT_AMOUNT) {
 			amountOnCard -= DECREMENT_AMOUNT;
 			byte[] date = BytesHelper.fromPreciseDate();
+			/** the actual transactionInfo, unencrypted */
 			ByteBuilder transactionInfo = new ByteBuilder(Integer.BYTES + 4 + Integer.BYTES + Integer.BYTES);
 			transactionInfo.add(DECREMENT_AMOUNT).add(date).add(terminalNumber).add(cardNumber);
-			byte[] msg = Arrays.copyOf(transactionInfo.array, transactionInfo.length + Util.HASH_LENGTH);
+			byte[] msg = Arrays.copyOf(Util.encrypt(privateT, transactionInfo.array),
+					Util.MODULUS_LENGTH + Util.HASH_LENGTH);
 			byte[] transactionInfoHashed = Util.hash(transactionInfo.array);
-			for (int i=0;  i < transactionInfoHashed.length; i++)
-				msg[transactionInfo.length + i] = transactionInfoHashed[i];
-			byte[] certificate = Util.communicate(card, Step.Pump1, Util.encrypt(aesKey, "AES", msg)
-					,128);
-			byte[] decryptedCert = Util.decrypt(publicC, certificate);
-			if (!Arrays.equals(transactionInfo.array, decryptedCert))
-				throw new IncorrectCertificateException(msg, decryptedCert);
+			for (int i = 0; i < transactionInfoHashed.length; i++)
+				msg[Util.MODULUS_LENGTH + i] = transactionInfoHashed[i];
+			
+			System.out.print("transactioninfo: ");
+			for (byte b : msg) {
+				System.out.print(String.format("%02x,", b));
+			}
+			System.out.println(".");
+			
+			byte[] certificate = Util.decryptAES(aesKey,
+					Util.communicate(card, Step.Pump1, Util.encryptAES(aesKey, msg), 0));
+			/** The returned message decrypted once*/
+			ByteBuilder decryptedCert = new ByteBuilder(128);
+			decryptedCert.add(Util.decrypt(publicC, Arrays.copyOfRange(certificate, 0, 128)))
+					.add(Util.decrypt(publicC, Arrays.copyOfRange(certificate, 128, 256)));
+
+			if (!Arrays.equals(Util.encrypt(privateT, transactionInfo.array), decryptedCert.array))
+				throw new IncorrectCertificateException(Util.encrypt(privateT, transactionInfo.array),
+						decryptedCert.array);
 			store(certificate);
 			dispenseFuel(DECREMENT_AMOUNT);
 		}
@@ -62,7 +77,6 @@ public class Pumper extends TerminalWithPin {
 	 */
 	private void dispenseFuel(int decrementAmount) {
 		// TODO Auto-generated method stub
-
 	}
 
 	/**

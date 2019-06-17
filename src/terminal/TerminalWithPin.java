@@ -20,6 +20,10 @@ import javax.smartcardio.CardException;
 import javax.smartcardio.CardTerminal;
 import javax.smartcardio.TerminalFactory;
 
+import mvcIO.CMDController;
+import mvcIO.CMDView;
+import mvcIO.Controller;
+import mvcIO.View;
 import terminal.exception.CardBlockedException;
 import terminal.exception.CertificateGenerationException;
 import terminal.exception.IncorrectCertificateException;
@@ -35,8 +39,11 @@ import terminal.util.Util;
 public abstract class TerminalWithPin implements Pinnable {
 
 	private final PublicKey publicM;
+	
+	protected final View output;
+	protected final Controller input;
 
-	private final PrivateKey privateT;
+	protected final PrivateKey privateT;
 	private final byte[] certificateT;
 	public final int terminalNumber;
 
@@ -48,54 +55,49 @@ public abstract class TerminalWithPin implements Pinnable {
 		this.type = type;
 
 		KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-		generator.initialize(new RSAKeyGenParameterSpec(Util.MODULUS_LENGTH * 8, BigInteger.valueOf(65535)));
+		generator.initialize(new RSAKeyGenParameterSpec(Util.MODULUS_LENGTH * 8, BigInteger.valueOf(65537)));
 		// TODO: THIS IS NOW HARDCODED DO NOT RELEASE THIS CODE
 		KeyPair kp = generator.generateKeyPair();
 		privateT = kp.getPrivate();
-		ByteBuilder certificateBuilder = new ByteBuilder(Util.MODULUS_LENGTH + 3 + 2);
-		System.out.println(certificateBuilder.getTop());
-		certificateBuilder.addPublicRSAKey(((RSAPublicKey) kp.getPublic()));
-		System.out.println(certificateBuilder.getTop());
-		Calendar date = Calendar.getInstance();
-		date.add(Calendar.YEAR, 5);
-		certificateBuilder.add(BytesHelper.fromDate(date));
 		try {
-			certificateT = BackEnd.getInstance().requestMasterEncryption(certificateBuilder.array);
+			certificateT = BackEnd.getInstance().requestCertificate((RSAPublicKey) kp.getPublic());
 		} catch (GeneralSecurityException e) {
 			throw new CertificateGenerationException();
 		}
 
 		publicM = BackEnd.getInstance().getPublicMasterKey();
 		terminalNumber = 0;// TODO get the terminalNumber from the backend or somewhere else
+		
+		output = new CMDView();
+		input = new CMDController();
 	}
 
 	@Override
 	public byte[] enterPin() throws InvalidPinException {
-		System.out.println("Please enter your pin");
-		Scanner scanner = new Scanner(System.in);
-		int pin = scanner.nextInt();
+		output.println("Please enter your pin");
+		//int pin = input.nextInt();
+		//TODO actually om pin vragen
+		int pin = 1234;
 		if (pin < 0 | pin >= 10000) {
 			System.out.println("Not a valid pin");
-			scanner.close();
 			throw new InvalidPinException(pin);
 		}
-		scanner.close();
 		return ByteBuffer.allocate(Integer.BYTES).putInt(pin).array();
 	}
 
 	@Override
 	public void showSucces() {
-		System.out.println("PIN succesful");
+		output.println("PIN succesful");
 	}
 
 	@Override
 	public void showFailed() {
-		System.out.println("PIN entered incorrect, try again");
+		output.println("PIN entered incorrect, try again");
 	}
 
 	@Override
 	public void showBlocked() {
-		System.out.println(
+		output.println(
 				"PIN entered incorrectly too many times" + ", we suspect you are a criminal and will be terminated.");
 	}
 
