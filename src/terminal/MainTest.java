@@ -23,6 +23,7 @@ public class MainTest {
 	 */
 	public static void main(String[] args) {
 		Scanner scanner = new Scanner(System.in);
+		System.out.println(BackEnd.getInstance().getPublicMasterKey());
 		/*
 		 * System.out.println("Waiting for cardreader ..."); while
 		 * (TerminalFactory.getDefault().terminals().list().size() == 0) {}

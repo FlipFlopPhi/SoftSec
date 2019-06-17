@@ -16,6 +16,7 @@ import java.security.interfaces.RSAPublicKey;
 import java.security.spec.RSAKeyGenParameterSpec;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Random;
 import java.util.Scanner;
 import java.util.TimeZone;
 
@@ -48,7 +49,7 @@ public class Personalizer {
 			ResponseAPDU response = card.getBasicChannel().transmit(new CommandAPDU((byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, APP_ID));
 			
 			int pin = 1234;
-			int cardNumber = 0;
+			int cardNumber = new Random().nextInt();
 			/*
 			System.out.println("Is this a new Account? (Y/N)");
 			Scanner scanner = new Scanner(System.in);

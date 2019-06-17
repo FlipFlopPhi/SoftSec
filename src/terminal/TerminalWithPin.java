@@ -12,6 +12,7 @@ import java.security.PublicKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.RSAKeyGenParameterSpec;
 import java.util.Calendar;
+import java.util.Random;
 import java.util.Scanner;
 
 import javax.crypto.SecretKey;
@@ -66,7 +67,7 @@ public abstract class TerminalWithPin implements Pinnable {
 		}
 
 		publicM = BackEnd.getInstance().getPublicMasterKey();
-		terminalNumber = 0;// TODO get the terminalNumber from the backend or somewhere else
+		terminalNumber = new Random().nextInt();// TODO get the terminalNumber from the backend or somewhere else
 		
 		output = new CMDView();
 		input = new CMDController();
