@@ -15,6 +15,7 @@ import java.security.PublicKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.RSAPublicKeySpec;
 import java.util.Arrays;
+import java.util.Random;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -81,7 +82,8 @@ public final class Util {
 			byte[] certificateT, PublicKey publicM, PrivateKey privateT)
 			throws IncorrectSequenceNumberException, GeneralSecurityException, CardException, IncorrectAckException, MismatchedHashException {
 		// Generate SequenceNumber first
-		final short R = (short) Math.floorMod((int) Math.random(), 2 ^ 15);
+		Random rngsusXSuperStar = new Random();
+		final short R = (short) rngsusXSuperStar.nextInt((int) Math.pow(2, 15));
 
 		// Generate the initial handshake message (The Hello)
 		ByteBuilder initMsg = new ByteBuilder(1 + 1 + versions.length + 2 + 128);
@@ -101,21 +103,15 @@ public final class Util {
 			byte[] certificateC1 = new byte[128];
 			for (int i= 0; i<64;i++) {
 				certificateC1[i] = reply[4+1+128+i];
-				//System.out.print(certificateC1[i]);
-				//System.out.println("," + MainTest.certificateC[i]);
 			}
 			for (int i = 0; i < 64; i++) {
 				certificateC1[64+i] = reply2[i];
-				//System.out.print(certificateC1[64+i]);
-				//System.out.println("," + MainTest.certificateC[64+i]);
 			}
 			certificateC1 = decrypt(publicM, certificateC1);
 			
 			byte[] certificateC2 = new byte[128];
 			for (int i = 0; i < 128; i++) {
 				certificateC2[i] = reply2[64 + i];
-				//System.out.print(certificateC2[i]);
-				//System.out.println("," + MainTest.certificateC[128+i]);
 			}
 			certificateC2 = decrypt(publicM,certificateC2);
 			
@@ -138,15 +134,8 @@ public final class Util {
 			short returnedSeqNr = BytesHelper.toShort(decrypt(publicC, sequenceNumberEncrypted));
 			short randomIncrement = (short) Math.floorMod(returnedSeqNr - R, 2 ^ 15);
 
-			/*byte[] hash
 			// TODO: check the certificate's date. and checksum the hash
-			byte[] certificateC = Arrays.copyOf(certificateC1, 128 + 2);
-			certificateC[128] = dateNHash[0];
-			certificateC[129] = dateNHash[1];
-			if (Arrays.equals(hash(Arrays.copyOfRange(dateNHash, 2, 18)), hash(certificateC))) {
-				throw new MismatchedHashException();
-			}
-			*/
+
 			// Send Message 3transmit
 			KeyGenerator generator = KeyGenerator.getInstance("AES");
 			generator.init(AES_KEYSIZE); // advanced Encryption Standard as specified by NIST in FIPS 197.
