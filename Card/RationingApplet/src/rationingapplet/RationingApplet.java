@@ -404,9 +404,13 @@ public class RationingApplet extends Applet implements ISO7816 {
 
         // Generate sequence number increment and apply it
         rngesus.generateData(notepad, (short) 0, (short) 2);
-        sequenceNumber[1] = (short) (Util.makeShort(notepad[0], notepad[1]) % (short) 2^15);
-        sequenceNumber[0] = (short) ((short) (sequenceNumber[0] + sequenceNumber[1]) % (short) 2^15);
-
+        sequenceNumber[1] = Util.makeShort(notepad[0], notepad[1]);
+        if (sequenceNumber[1] <(short) 0) {
+    		sequenceNumber[1] += (short) 32768;
+    	}
+        //sequenceNumber[1] = (short) 32767;
+        incrementSeqNum();
+        
         // Encrypt the sequence number and add the ciphertext to the outgoing buffer (128 bytes)
         short cipherLength = 0;
         try {
@@ -509,6 +513,15 @@ public class RationingApplet extends Applet implements ISO7816 {
     	symmetricKey.setKey(notepad, (short) RSA_KEY_MODULUSSIZE);
     	// ISOException.throwIt((short) calcChecksum(notepad, RSA_KEY_MODULUSSIZE, (short) 16));
     	
+    	incrementSeqNum();
+    	if (Util.makeShort(notepad[(short) (RSA_KEY_MODULUSSIZE + AES_KEY_BYTESIZE)], 
+    			notepad[(short) (RSA_KEY_MODULUSSIZE + AES_KEY_BYTESIZE + 1)]) != sequenceNumber[0]) {
+    		//ISOException.throwIt(sequenceNumber[0]);
+    		ISOException.throwIt(sequenceNumber[0]);
+    		//ISOException.throwIt(ISO7816.SW_FILE_INVALID);
+    	}
+    	
+    	incrementSeqNum();
     	// Prepare response; card will respond with a symmetric encrypted (aesKey) OK
         short returnLength = apdu.setOutgoing();
         if (returnLength !=  AES_KEY_BYTESIZE) {
@@ -516,8 +529,8 @@ public class RationingApplet extends Applet implements ISO7816 {
         }
         apdu.setOutgoingLength(returnLength);
 
-        short incremented = (short) ((short) (sequenceNumber[0] + 3*sequenceNumber[1])%(short) (2^15));
-        Util.setShort(notepad,(short)0,incremented);
+        //ISOException.throwIt((short) sequenceNumber[0]);
+        Util.setShort(notepad,(short)0,sequenceNumber[0]);
         for (short i = 2; i < AES_KEY_BYTESIZE; i++) {
         	notepad[i] = (byte) 0;
         }
@@ -919,6 +932,19 @@ public class RationingApplet extends Applet implements ISO7816 {
     		checksum += inBuffer[(short) (i + offset)];
     	}
     	return checksum;
+    }
+    
+    private void incrementSeqNum () {
+
+        
+    	
+    	//sequenceNumber = [seqNum, increment]
+    	//ISOException.throwIt((short) (2^15));
+    	sequenceNumber[0] = (short) (sequenceNumber[0] + sequenceNumber[1]);
+    	if (sequenceNumber[0] <(short) 0) {
+    		sequenceNumber[0] += (short) 32768;
+    	}
+    	//ISOException.throwIt(sequenceNumber[0]);
     }
 
     /*private void respond() { I think this is javacard 2.2.2

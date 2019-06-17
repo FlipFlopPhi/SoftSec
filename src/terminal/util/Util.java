@@ -132,9 +132,11 @@ public final class Util {
 					new RSAPublicKeySpec(new BigInteger(mod), new BigInteger(exp)));
 			byte[] sequenceNumberEncrypted = Arrays.copyOfRange(reply, CARDNUMBER_BYTESIZE + 1,
 					CARDNUMBER_BYTESIZE + 1 + 128);
+			System.out.println(String.format("%02x",decrypt(publicC, sequenceNumberEncrypted)[1]));
 			short returnedSeqNr = BytesHelper.toShort(decrypt(publicC, sequenceNumberEncrypted));
+			System.out.println("we komen er wel: "+returnedSeqNr);
 			short randomIncrement = (short) Math.floorMod(returnedSeqNr - R, modulus);
-
+			System.out.println("pplus hoeveel? "+randomIncrement);
 			// TODO: check the certificate's date. and checksum the hash
 
 			// Send Message 3transmit
@@ -143,6 +145,7 @@ public final class Util {
 			SecretKey aesKey = generator.generateKey();
 			byte[] keyMsg = Arrays.copyOf(aesKey.getEncoded(), AES_KEYSIZE / 8 + 2);
 			byte[] incrementedR = BytesHelper.fromShort((short) Math.floorMod(R + 2 * randomIncrement, modulus));
+			//byte[] incrementedR = BytesHelper.fromShort((short) 0);
 			keyMsg[AES_KEYSIZE / 8] = incrementedR[0];
 			keyMsg[AES_KEYSIZE / 8 + 1] = incrementedR[1];
 			// Send + Response
@@ -154,13 +157,14 @@ public final class Util {
 
 			System.out.println("aes: "+checkSum(encrypt(aesKey,"AES/ECB/NoPadding",new byte[16])));
 			System.out.println("repluy: "+checkSum(reply));
-			returnedSeqNr = BytesHelper.toShort(Arrays.copyOfRange(decrypt(aesKey, "AES/ECB/NoPadding", reply),4,6));
+			returnedSeqNr = BytesHelper.toShort(Arrays.copyOf(decrypt(aesKey, "AES/ECB/NoPadding", reply),22));
 			System.out.println(checkSum(reply = decrypt(aesKey, "AES/ECB/NoPadding", reply)));
-			//for(byte b : reply) {
-			//	System.out.print(b+" ,");
-			//}
-			/*if (returnedSeqNr != (short) Math.floorMod(R + 3 * randomIncrement, 2 ^ 15))
-				throw new IncorrectSequenceNumberException();*/
+			for(byte b : reply) {
+				System.out.print(b+" ,");
+			}
+			System.out.println("\n"+returnedSeqNr);
+			if (returnedSeqNr != (short) Math.floorMod(R + 3 * randomIncrement, modulus))
+				throw new IncorrectSequenceNumberException();
 			return new Triple<SecretKey, PublicKey, Integer>(aesKey, publicC, Integer.valueOf(cardNumber));
 		} catch (CardException e) {
 			e.printStackTrace();

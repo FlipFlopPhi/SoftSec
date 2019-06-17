@@ -15,19 +15,11 @@ public final class BytesHelper {
 	private BytesHelper() {} //this is so 
 	
 	public static int toInt( byte[] bytes ) {
-	    int result = 0;
-	    for (int i=0; i<4; i++) {
-	    	result += ( (bytes[i] & 0xff) << 8*(3-i) );
-	    }
-	    return result;
+	    return ByteBuffer.wrap(bytes).getInt();
 	}
 
 	public static short toShort(byte[] bytes) {
-		short result = 0;
-	    for (int i=0; i<2; i++) {
-	    	result += ( bytes[i] << 8*(2-i) );
-	    }
-	    return result;
+		return ByteBuffer.wrap(bytes).getShort();
 	}
 
 	public static byte[] fromShort(short value) {
