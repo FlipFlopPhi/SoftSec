@@ -9,6 +9,7 @@ public class RationingApplet extends Applet implements ISO7816 {
     //private byte someData[];
     private byte notepad[];
     private short oldState[];
+    private boolean isPersonalized;
     private short sequenceNumber[];
     private byte terminalType[];
     private RSAPrivateKey cardPrivateKey;
@@ -84,6 +85,8 @@ public class RationingApplet extends Applet implements ISO7816 {
 		// Handshake step 3
 		symmetricKey = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_RESET, KeyBuilder.LENGTH_AES_128, false);
 
+		isPersonalized = false;
+		
         // Finally, register the applet.
         register();
     }
@@ -184,14 +187,14 @@ public class RationingApplet extends Applet implements ISO7816 {
 
                 break;
             case 8:
-                if (oldState[0] != (short) 0) { //TODO onbereikbaar maken lol
+                if (oldState[0] != (short) 0 || isPersonalized) { //TODO onbereikbaar maken lol
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
                 personalizeStepOne(apdu, dataLength);
 
                 break;
             case 9:
-                if (oldState[0] != (short) 8) {
+                if (oldState[0] != (short) 8 || isPersonalized) {
                     //ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 	ISOException.throwIt(oldState[0]);
                 }
@@ -199,23 +202,23 @@ public class RationingApplet extends Applet implements ISO7816 {
 
                 break;
             case 10:
-                if (oldState[0] != (short) 9) {
+                if (oldState[0] != (short) 9 || isPersonalized) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
                 personalizeStepThree(apdu, dataLength);
 
                 break;
             case 11:
-            	if (oldState[0] != (short) 10) {
+            	if (oldState[0] != (short) 10 || isPersonalized) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);            		
             	}
             	personalizeStepFour(apdu, dataLength);
-            	
+            	isPersonalized = true;
             	break;
-            case 25:
+            /*case 25:
                 debugStep(apdu, dataLength);
                 terminalState = 0;
-                break;
+                break; */
             default:
 
                 ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
