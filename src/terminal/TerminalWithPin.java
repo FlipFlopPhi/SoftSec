@@ -55,19 +55,20 @@ public abstract class TerminalWithPin implements Pinnable {
 
 	public TerminalWithPin(TerminalType type) throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, CertificateGenerationException {
 		this.type = type;
+		terminalNumber = new Random().nextInt();
 
 		KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
 		generator.initialize(new RSAKeyGenParameterSpec(Util.MODULUS_LENGTH * 8, BigInteger.valueOf(65537)));
 		KeyPair kp = generator.generateKeyPair();
 		privateT = kp.getPrivate();
 		try {
-			certificateT = BackEnd.getInstance().requestCertificate((RSAPublicKey) kp.getPublic());
+			certificateT = BackEnd.getInstance().requestCertificate((RSAPublicKey) kp.getPublic(), terminalNumber);
 		} catch (GeneralSecurityException e) {
 			throw new CertificateGenerationException();
 		}
 
 		publicM = BackEnd.getInstance().getPublicMasterKey();
-		terminalNumber = new Random().nextInt();
+		
 		
 		output = new CMDView();
 		input = new CMDController();

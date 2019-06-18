@@ -174,12 +174,12 @@ public class BackEnd implements IBackEnd {
 		return cardHolders.get(Integer.valueOf(cardNumber));
 	}
 
-	public byte[] requestCertificate(RSAPublicKey publicKey) throws GeneralSecurityException {
+	public byte[] requestCertificate(RSAPublicKey publicKey, int xNumber) throws GeneralSecurityException {
 		Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
 		calendar.add(Calendar.YEAR, 5);
 		byte[] date = BytesHelper.fromDate(calendar);
-		ByteBuilder hashInput = new ByteBuilder(Util.MODULUS_LENGTH + Util.EXPONENT_LENGTH + 2)
-				.addPublicRSAKey(publicKey).add(date);
+		ByteBuilder hashInput = new ByteBuilder(Util.MODULUS_LENGTH + Util.EXPONENT_LENGTH + Integer.BYTES + 2)
+				.addPublicRSAKey(publicKey).add(xNumber).add(date);
 		byte[] hash = Util.hash(hashInput.array);
 		ByteBuilder certificate = new ByteBuilder(256);
 		certificate.add(requestMasterEncryption(Arrays.copyOf(hashInput.array, Util.RSA_BLOCK_LENGTH)));

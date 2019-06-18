@@ -35,7 +35,8 @@ public interface IBackEnd {
 	
 	/**
 	 * Creates a master certificate containing the submitted publicKey
+	 * @param XNumber the card- or terminalnumber to be included into the certificate
 	 */
-	public byte[] requestCertificate(RSAPublicKey publicKey) throws GeneralSecurityException;
+	public byte[] requestCertificate(RSAPublicKey publicKey, int XNumber) throws GeneralSecurityException;
 
 }

@@ -69,7 +69,7 @@ public class Personalizer {
 			Util.communicate(card, Step.Personalize2, privateC.getPrivateExponent().toByteArray(), 1);
 			
 			byte[] certificateC; try {
-				certificateC = BackEnd.getInstance().requestCertificate((RSAPublicKey)kp.getPublic());
+				certificateC = BackEnd.getInstance().requestCertificate((RSAPublicKey)kp.getPublic(), cardNumber);
 
 			} catch (GeneralSecurityException e) {
 				e.printStackTrace();
@@ -78,7 +78,7 @@ public class Personalizer {
 			ByteBuilder persT3 = new ByteBuilder(Util.MODULUS_LENGTH + 3 + 64 + Integer.BYTES + Integer.BYTES);
 			persT3.addPublicRSAKey(BackEnd.getInstance().getPublicMasterKey())
 				.add(Arrays.copyOf(certificateC, 64)).add(pin).add(cardNumber);
-			byte[] responseData = Util.communicate(card, Step.Personalize3, persT3.array, 130);
+			Util.communicate(card, Step.Personalize3, persT3.array, 130);
 			
 			Util.communicate(card, Step.Personalize4, Arrays.copyOfRange(certificateC, 64, 256), 1);
 			
