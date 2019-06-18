@@ -12,6 +12,7 @@ public class RationingApplet extends Applet implements ISO7816 {
     private boolean isPersonalized;
     private short sequenceNumber[];
     private byte terminalType[];
+    private byte terminalNumber[];
     private RSAPrivateKey cardPrivateKey;
     private RSAPublicKey terminalPublicKey;
     private RSAPublicKey masterKey;
@@ -30,9 +31,10 @@ public class RationingApplet extends Applet implements ISO7816 {
     private static short RSA_KEY_EXPONENTSIZE = 3;
     private static short AES_KEY_BYTESIZE = 16; // 128/8
     private static short DATE_BYTESIZE = 2;
+    private static short IDENTIFIER_BYTESIZE = 4;
     private static short TRANSACTIONINFO_BYTESIZE = 16;
     private static short CERTIFICATE_BYTESIZE = 256;
-    private static short CERTIFICATE_DECRYPTED_SIZE = 149;
+    private static short CERTIFICATE_DECRYPTED_SIZE = 153;
     private static short HANDSHAKE_ONE_INPUT_LENGTH_MIN = 133;
     private static short NOTEPAD_SIZE = 520;
     private static byte VERSION_NUMBER = 1;
@@ -53,7 +55,6 @@ public class RationingApplet extends Applet implements ISO7816 {
         //300 bytes of memory that should be used as temporary storage of byte arrays instead of defining different arrays for every single thing.
         notepad = JCSystem.makeTransientByteArray((short) NOTEPAD_SIZE, JCSystem.CLEAR_ON_RESET);
 
-        //TODO get all the upcoming variables from personalizing
         masterKey = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_1024, false);
 //        masterKey.setExponent(buffer, offset, length);
 //        masterKey.setModulus(buffer, offset, length);
@@ -61,7 +62,7 @@ public class RationingApplet extends Applet implements ISO7816 {
 //        cardPrivateKey.setExponent(buffer, offset, length);
 //        cardPrivateKey.setModulus(buffer, offset, length);
         cardCertificate = new byte[CERTIFICATE_BYTESIZE];
-        cardNumber = new byte[4];
+        cardNumber = new byte[IDENTIFIER_BYTESIZE];
 
         // Max tries = 3, max size = 4
         pin = new OwnerPIN((byte) 4, (byte) 4);
@@ -80,6 +81,7 @@ public class RationingApplet extends Applet implements ISO7816 {
 
         // Handshake step 1
         terminalType = JCSystem.makeTransientByteArray((short) 1, JCSystem.CLEAR_ON_RESET);
+        terminalNumber = JCSystem.makeTransientByteArray(IDENTIFIER_BYTESIZE, JCSystem.CLEAR_ON_RESET);
         terminalPublicKey = (RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_1024, false);
 
 		// Handshake step 3
@@ -135,7 +137,7 @@ public class RationingApplet extends Applet implements ISO7816 {
 
         switch(terminalState) {
             case 1:
-                if (oldState[0] != (short) 0 && oldState[0] != (short) 11) { //TODO 10 weghalen lol
+                if (oldState[0] != (short) 0 && oldState[0] != (short) 11) { 
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
                 handshakeStepOne(apdu, dataLength);
@@ -187,7 +189,7 @@ public class RationingApplet extends Applet implements ISO7816 {
 
                 break;
             case 8:
-                if (oldState[0] != (short) 0 || isPersonalized) { //TODO onbereikbaar maken lol
+                if (oldState[0] != (short) 0 || isPersonalized) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
                 personalizeStepOne(apdu, dataLength);
@@ -367,9 +369,14 @@ public class RationingApplet extends Applet implements ISO7816 {
         if (certSize != (short) (CERTIFICATE_DECRYPTED_SIZE)) {
         	ISOException.throwIt(ISO7816.SW_DATA_INVALID);
         }
+
+        // Extract the Terminal Number
+        for(short i = 0; i < IDENTIFIER_BYTESIZE; i++) {
+        	terminalNumber[i] = notepad[(short) (CERTIFICATE_BYTESIZE + RSA_KEY_BYTESIZE + i)];
+        }
         
-        // Hash the decrypted public key and expiration date
-        short hashLength = hasher.doFinal(notepad, CERTIFICATE_BYTESIZE, (short) (RSA_KEY_BYTESIZE + DATE_BYTESIZE), notepad, (short) 0);
+        // Hash the decrypted public key, terminalnumber and expiration date
+        short hashLength = hasher.doFinal(notepad, CERTIFICATE_BYTESIZE, (short) (RSA_KEY_BYTESIZE + IDENTIFIER_BYTESIZE + DATE_BYTESIZE), notepad, (short) 0);
 
         if (hashLength != HASH_BYTESIZE) {
             CryptoException.throwIt(CryptoException.ILLEGAL_USE);
@@ -395,7 +402,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         apdu.setOutgoingLength(returnLength);
 
         // Add the card number
-        for (short i = 0; i < 4; i++) {
+        for (short i = 0; i < IDENTIFIER_BYTESIZE; i++) {
             buffer[i] = cardNumber[i];
         }
 
@@ -626,7 +633,6 @@ public class RationingApplet extends Applet implements ISO7816 {
             if (notepad[(short) (i + pinSize)] != notepad[(short) (i+HASH_BYTESIZE+pinSize)]){
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
             	//ISOException.throwIt(Util.makeShort(notepad[(short) (i + pinSize)], notepad[(short) (i+HASH_BYTESIZE+pinSize)]));
-            	//TODO uitvinden waarom dit niet werkt
             }
         }
         
@@ -751,21 +757,6 @@ public class RationingApplet extends Applet implements ISO7816 {
         	ISOException.throwIt(msgSize);
         }
         
-        /*
-        short returnLength = apdu.setOutgoing();
-        if (returnLength != (short) 256) {
-            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-        }
-        
-        apdu.setOutgoingLength(returnLength);
-        for (short i = 0; i < msgSize; i++) {
-        	buffer[(short) i] = notepad[(short) i];
-        }
-        
-        apdu.sendBytes((short) 0, returnLength);
-        return;  */
-        
-        
         // Decrypt transaction info
         rSACipher.init(terminalPublicKey,Cipher.MODE_DECRYPT);
         short transactionSize = 0;
@@ -791,6 +782,20 @@ public class RationingApplet extends Applet implements ISO7816 {
         }
 
         //TODO check things in transactioninfo
+        // Compare the terminalnumber from the certificate with the terminalnumber in the transactioninfo
+        for (short i = 0; i < IDENTIFIER_BYTESIZE; i++) {
+        	if (terminalNumber[i] != notepad[(short) (msgSize + DATE_BYTESIZE + 4 + i)]) {
+        		ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        	}
+        }
+        
+        //	Compare the cardnumber on the card with the cardnumber in the transactioninfo
+        for (short i = 0; i < IDENTIFIER_BYTESIZE; i++) {
+        	if (cardNumber[i] != notepad[(short) (msgSize + DATE_BYTESIZE + IDENTIFIER_BYTESIZE + 4 + i)]) {
+        		ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+        	}
+        }
+        
         // Saldo - change
         short overflow = 0;
         // Saldo change (first 4 bytes)
@@ -888,7 +893,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         //Pin (4 bytes), Cardnumber (4 bytes)
         pin.update(buffer, (short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + (short) (CERTIFICATE_BYTESIZE / 4)), (byte) 4);
 
-        for (short i = 0; i < 4; i++) {
+        for (short i = 0; i < IDENTIFIER_BYTESIZE; i++) {
             cardNumber[i] = buffer[(short) (OFFSET_CDATA + RSA_KEY_BYTESIZE + (short) (CERTIFICATE_BYTESIZE /4) + i + 4)];
         }
         
