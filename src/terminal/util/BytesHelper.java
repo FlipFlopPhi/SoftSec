@@ -14,7 +14,7 @@ import java.util.TimeZone;
 public final class BytesHelper {
 	
 
-	public final static int STARTING_YEAR = 2020;
+	public final static int STARTING_YEAR = 2019;
 	
 	private BytesHelper() {} //this is so 
 	

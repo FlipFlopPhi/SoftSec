@@ -147,7 +147,7 @@ public final class Util {
 					CARDNUMBER_BYTESIZE + 1 + 128);
 			short returnedSeqNr = BytesHelper.toShort(decrypt(publicC, sequenceNumberEncrypted));
 			short randomIncrement = (short) Math.floorMod(returnedSeqNr - R, modulus);
-			if (BytesHelper.toInt(BytesHelper.fromDate()) > BytesHelper.toInt(Arrays.copyOfRange(certificateC2, 11+3+4, 11+3+4))) {
+			if (BytesHelper.toInt(BytesHelper.fromDate()) > BytesHelper.toInt(Arrays.copyOfRange(certificateC2, 11+3+4, 11+3+4+2))) {
 				throw new OutOfDateCertificateException();
 			}
 			byte[] hashInfo = Arrays.copyOf(certificateC1, MODULUS_LENGTH + EXPONENT_LENGTH + Integer.BYTES + 2);
