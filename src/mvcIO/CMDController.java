@@ -6,8 +6,8 @@ package mvcIO;
 import java.util.Scanner;
 
 /**
- * @author Vizu
- *
+ * MVC pattern controller, using the command prompt
+ * @author Flip van Spaendonck, Thijs Werrij, Toon Lenaerts
  */
 public class CMDController implements Controller {
 

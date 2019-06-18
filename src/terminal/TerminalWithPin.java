@@ -40,6 +40,11 @@ import terminal.util.BytesHelper;
 import terminal.util.Triple;
 import terminal.util.Util;
 
+/**
+ * An abstract class, providing functions to support terminals that make use of a pinpad.
+ * @author Flip van Spaendonck, Thijs Werrij, Toon Lenaerts
+ *
+ */
 public abstract class TerminalWithPin implements Pinnable {
 
 	private final PublicKey publicM;
@@ -124,6 +129,9 @@ public abstract class TerminalWithPin implements Pinnable {
 		
 	}
 
+	/**
+	 * The functionality that the terminal should employ after the handshake and pinstep have been completed.
+	 */
 	protected abstract void restOfTheCard(Card card, SecretKey aesKey, PublicKey publicC, int cardNumber, byte[] bs)
 			throws NoSuchAlgorithmException, CardException, GeneralSecurityException, IncorrectResponseCodeException,
 			IncorrectCertificateException;
