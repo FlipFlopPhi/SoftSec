@@ -18,17 +18,12 @@ import terminal.exception.IncorrectSequenceNumberException;
  */
 public class MainTest {
 
+
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) {
 		Scanner scanner = new Scanner(System.in);
-		System.out.println(BackEnd.getInstance().getPublicMasterKey());
-		/*
-		 * System.out.println("Waiting for cardreader ..."); while
-		 * (TerminalFactory.getDefault().terminals().list().size() == 0) {}
-		 * System.out.println("Cardreader detected");
-		 */
 		loop: while (true) {
 			System.out.println("Personalize? (1), Charger (2), Pump (3), quit (anything else)");
 			int choice = scanner.nextInt();

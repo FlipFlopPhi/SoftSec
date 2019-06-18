@@ -40,7 +40,7 @@ public class Charger extends TerminalWithPin {
 		byte[] amountRequested = BytesHelper.fromInt(getRequestedAmount(amountOnCard, cardholder));
 		ByteBuilder msg= new ByteBuilder(Util.AES_KEYSIZE/8*2);
 		msg.add(Util.encryptAES(aesKey, amountRequested)).add(Util.encryptAES(aesKey, Util.hash(amountRequested)));
-		Account.testAccount.decreaseBy(BytesHelper.toInt(amountRequested));
+		BackEnd.getInstance().getAccount(cardNumber).decreaseBy(BytesHelper.toInt(amountRequested));
 		byte[] reply = Util.communicate(card, Step.Charge, msg.array, 16);
 		if (Util.decryptAES(aesKey, reply)[0] != TRANSFER_SUCCESSFUL)
 			throw new IncorrectResponseCodeException(TRANSFER_SUCCESSFUL);
