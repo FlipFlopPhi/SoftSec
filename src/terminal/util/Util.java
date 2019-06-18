@@ -155,8 +155,7 @@ public final class Util {
 			for(int i = 0; i < 11 + EXPONENT_LENGTH + Integer.BYTES + 2; i++) {
 				hashInfo[certificateC1.length + i] = certificateC2[i];
 			}
-			System.out.println(new OutOfDateCertificateException(now, certDate).getMessage());
-			if (Arrays.equals(hash(hashInfo)
+			if (!Arrays.equals(hash(hashInfo)
 					, Arrays.copyOfRange(certificateC2, 11 + EXPONENT_LENGTH + Integer.BYTES + 2, 11 + EXPONENT_LENGTH + Integer.BYTES + 2 + HASH_LENGTH))) {
 				throw new MismatchedHashException();
 			}

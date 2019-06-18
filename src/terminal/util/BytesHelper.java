@@ -80,7 +80,7 @@ public final class BytesHelper {
 
 	public static String toDate(byte[] date) {// yyyyyyym mmmddddd
 		int y = (date[0] >> 1) + STARTING_YEAR;
-		int m = (toShort(date) >> 5) & 0xf;
+		int m = ((toShort(date) >> 5) & 0xf) + 1;
 		int d = date[1] & 0x1f;
 		return y +"-"+m+"-"+d;
 	}
