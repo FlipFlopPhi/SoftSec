@@ -36,6 +36,8 @@ import terminal.exception.IncorrectResponseCodeException;
 import terminal.exception.IncorrectSequenceNumberException;
 import terminal.exception.InvalidPinException;
 import terminal.exception.MismatchedHashException;
+import terminal.exception.OutOfDateCertificateException;
+import terminal.exception.VersionUnsupportedException;
 
 /**
  * @author pspaendonck
@@ -79,10 +81,12 @@ public final class Util {
 	 *                                          decryption.
 	 * @throws IncorrectAckException
 	 * @throws MismatchedHashException
+	 * @throws OutOfDateCertificateException 
+	 * @throws VersionUnsupportedException 
 	 */
 	public final static Triple<SecretKey, PublicKey, Integer> handSjaak(Card card, TerminalType type, byte[] versions,
 			byte[] certificateT, PublicKey publicM, PrivateKey privateT) throws IncorrectSequenceNumberException,
-			GeneralSecurityException, CardException, IncorrectAckException, MismatchedHashException {
+			GeneralSecurityException, CardException, IncorrectAckException, MismatchedHashException, OutOfDateCertificateException, VersionUnsupportedException {
 		// Generate SequenceNumber first
 		Random rngsusXSuperStar = new Random();
 		final int modulus = (int) Math.pow(2, 15);
@@ -100,7 +104,15 @@ public final class Util {
 					Arrays.copyOfRange(certificateT, 128, CERTIFICATE_BYTESIZE), CARDNUMBER_BYTESIZE + 1 + 128 + 64);
 			int cardNumber = BytesHelper.toInt(Arrays.copyOf(reply, 4));
 			byte version = reply[CARDNUMBER_BYTESIZE];
-			// TODO: Make support for version handling of card and terminal on the
+			boolean versionNotSupported = true;
+			for(byte b : versions) {
+				if (b == version) {
+					versionNotSupported = false;
+					break;
+				}
+			}
+			if (!versionNotSupported) 
+				throw new VersionUnsupportedException();
 			// terminalside.
 			byte[] reply2 = communicate(card, Step.Handshake3, new byte[] { ACK }, 192);
 			byte[] certificateC1 = new byte[128];
@@ -135,7 +147,20 @@ public final class Util {
 					CARDNUMBER_BYTESIZE + 1 + 128);
 			short returnedSeqNr = BytesHelper.toShort(decrypt(publicC, sequenceNumberEncrypted));
 			short randomIncrement = (short) Math.floorMod(returnedSeqNr - R, modulus);
-			// TODO: check the certificate's date. and checksum the hash
+			if (BytesHelper.toInt(BytesHelper.fromDate()) > BytesHelper.toInt(Arrays.copyOfRange(certificateC2, 11+3+4, 11+3+4))) {
+				throw new OutOfDateCertificateException();
+			}
+			byte[] hashInfo = Arrays.copyOf(certificateC1, MODULUS_LENGTH + EXPONENT_LENGTH + Integer.BYTES + 2);
+			for(int i = 0; i < 11 + EXPONENT_LENGTH + Integer.BYTES + 2; i++) {
+				hashInfo[RSA_BLOCK_LENGTH + i] = certificateC2[i];
+			}
+			if (Arrays.equals(hash(hashInfo)
+					, Arrays.copyOfRange(certificateC2, 11 + EXPONENT_LENGTH + Integer.BYTES + 2, 11 + EXPONENT_LENGTH + Integer.BYTES + 2 + 16))) {
+				throw new MismatchedHashException();
+			}
+			
+			
+			
 
 			// Send Message 3transmit
 			KeyGenerator generator = KeyGenerator.getInstance("AES");

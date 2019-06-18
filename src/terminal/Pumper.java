@@ -59,7 +59,7 @@ public class Pumper extends TerminalWithPin {
 			if (!Arrays.equals(Util.encrypt(privateT, transactionInfo.array), decryptedCert.array))
 				throw new IncorrectCertificateException(Util.encrypt(privateT, transactionInfo.array),
 						decryptedCert.array);
-			store(certificate);
+			store(certificate, cardNumber);
 			dispenseFuel(DECREMENT_AMOUNT);
 		}
 	}
@@ -70,7 +70,7 @@ public class Pumper extends TerminalWithPin {
 	 * @param decrementAmount
 	 */
 	private void dispenseFuel(int decrementAmount) {
-		// TODO Auto-generated method stub
+		output.println("Duspensing fuel worth "+decrementAmount+" Creds");
 	}
 
 	/**
@@ -92,9 +92,8 @@ public class Pumper extends TerminalWithPin {
 	 * 
 	 * @param certificate
 	 */
-	private void store(byte[] receipt) {
-		// TODO Auto-generated method stub
-
+	private void store(byte[] receipt, int cardNumber) {
+		BackEnd.getInstance().storeReceipt(receipt, this.terminalNumber, cardNumber);
 	}
 
 }

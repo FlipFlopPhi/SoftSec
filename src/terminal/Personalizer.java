@@ -47,9 +47,24 @@ public class Personalizer {
 
 			Util.sendSelect(card);
 			
-			int pin = 1234;
+			Scanner in = new Scanner(System.in);
+			System.out.println("Please enter your 4 digit pincode:");
+			int pin = in.nextInt();
+			while(pin < 1000 | pin >9999) {
+				System.out.println("Pin entered incorrectly, please try again");
+			}
+			System.out.println("Please enter your name:");
+			String name = in.nextLine();
+			
+			System.out.println("Please enter your BSN:");
+			BigInteger bsn = in.nextBigInteger();
+			in.close();
+			
+			
+			
+			
 			int cardNumber = new Random().nextInt();
-			BackEnd.getInstance().registerCard(cardNumber, new Account()); //TODO remove this and uncomment earlier code
+			BackEnd.getInstance().registerCard(cardNumber, new Account(name, bsn));
 			
 			KeyPairGenerator generator;
 			try {
@@ -82,7 +97,7 @@ public class Personalizer {
 			
 			Util.communicate(card, Step.Personalize4, Arrays.copyOfRange(certificateC, 64, 256), 1);
 			
-			BackEnd.getInstance().storeCardInfo(cardNumber, kp.getPublic());//TODO integrate personal user information
+			BackEnd.getInstance().storeCardInfo(cardNumber, kp.getPublic());
 		} catch (CardException e1) {
 			e1.printStackTrace();
 			throw new FailedPersonalizationException("Could not connect with a card for personalization.");

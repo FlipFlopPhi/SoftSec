@@ -33,6 +33,8 @@ import terminal.exception.IncorrectResponseCodeException;
 import terminal.exception.IncorrectSequenceNumberException;
 import terminal.exception.InvalidPinException;
 import terminal.exception.MismatchedHashException;
+import terminal.exception.OutOfDateCertificateException;
+import terminal.exception.VersionUnsupportedException;
 import terminal.util.ByteBuilder;
 import terminal.util.BytesHelper;
 import terminal.util.Triple;
@@ -103,16 +105,23 @@ public abstract class TerminalWithPin implements Pinnable {
 	}
 
 	public void initCommunications() throws CardException, IncorrectSequenceNumberException, GeneralSecurityException,
-			IncorrectResponseCodeException, CardBlockedException, IncorrectCertificateException, IncorrectAckException, MismatchedHashException {
+			IncorrectResponseCodeException, CardBlockedException, IncorrectCertificateException, IncorrectAckException, MismatchedHashException, OutOfDateCertificateException {
 		CardTerminal reader = TerminalFactory.getDefault().terminals().list().get(0);
 		Card card = reader.connect("*");
 		Util.sendSelect(card);
 		
-		Triple<SecretKey, PublicKey, Integer> keys = Util.handSjaak(card, type, supportedCardVersions, certificateT,
-				publicM, privateT);
-		SecretKey aesKey = keys.first;
-		PublicKey publicC = keys.second;
-		restOfTheCard(card, aesKey, publicC, keys.third, Util.verifyPin(card, aesKey, this));
+		try {
+			Triple<SecretKey, PublicKey, Integer> keys = Util.handSjaak(card, type, supportedCardVersions, certificateT,
+					publicM, privateT);
+			SecretKey aesKey = keys.first;
+			PublicKey publicC = keys.second;
+			restOfTheCard(card, aesKey, publicC, keys.third, Util.verifyPin(card, aesKey, this));
+		} catch (IncorrectCertificateException e) {
+			output.println("your certificate seems to be out of date, please request a new one at your distributer.");
+		} catch (VersionUnsupportedException e) {
+			output.println("Your card's version is not supported by this terminal.");
+		}
+		
 	}
 
 	protected abstract void restOfTheCard(Card card, SecretKey aesKey, PublicKey publicC, int cardNumber, byte[] bs)
