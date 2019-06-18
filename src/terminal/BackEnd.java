@@ -84,7 +84,6 @@ public class BackEnd implements IBackEnd {
 			try {
 				saveField(CARDKEYSFIELDNAME, cardKeys);
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
@@ -96,7 +95,6 @@ public class BackEnd implements IBackEnd {
 			try {
 				saveField(CARDHOLDERSFIELDNAME, cardHolders);
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
@@ -122,7 +120,6 @@ public class BackEnd implements IBackEnd {
 			try {
 				saveField(KEYPAIRFIELDNAME, kp);
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
@@ -188,4 +185,9 @@ public class BackEnd implements IBackEnd {
 		return certificate.array;
 	}
 
+
+	/**
+	 * This is currently just a placeholder
+	 */
+	public void storeReceipt(byte[] receipt, int terminalNumber, int cardNumber) {}
 }

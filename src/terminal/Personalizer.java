@@ -97,7 +97,7 @@ public class Personalizer {
 			
 			Util.communicate(card, Step.Personalize4, Arrays.copyOfRange(certificateC, 64, 256), 1);
 			
-			BackEnd.getInstance().storeCardInfo(cardNumber, kp.getPublic());//TODO integrate personal user information
+			BackEnd.getInstance().storeCardInfo(cardNumber, kp.getPublic());
 		} catch (CardException e1) {
 			e1.printStackTrace();
 			throw new FailedPersonalizationException("Could not connect with a card for personalization.");

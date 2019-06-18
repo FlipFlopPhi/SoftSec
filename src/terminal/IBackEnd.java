@@ -39,4 +39,10 @@ public interface IBackEnd {
 	 */
 	public byte[] requestCertificate(RSAPublicKey publicKey, int XNumber) throws GeneralSecurityException;
 
+	/**
+	 * Stores a receipt on the backEnd.
+	 * @param receipt
+	 */
+	public void storeReceipt(byte[] receipt, int terminalNumber, int cardNumber);
+
 }
