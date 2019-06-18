@@ -27,13 +27,14 @@ import mvcIO.Controller;
 import mvcIO.View;
 import terminal.exception.CardBlockedException;
 import terminal.exception.CertificateGenerationException;
+import terminal.exception.IncorrectAckException;
 import terminal.exception.IncorrectCertificateException;
 import terminal.exception.IncorrectResponseCodeException;
 import terminal.exception.IncorrectSequenceNumberException;
+import terminal.exception.InvalidPinException;
+import terminal.exception.MismatchedHashException;
 import terminal.util.ByteBuilder;
 import terminal.util.BytesHelper;
-import terminal.util.IncorrectAckException;
-import terminal.util.MismatchedHashException;
 import terminal.util.Triple;
 import terminal.util.Util;
 
@@ -57,7 +58,6 @@ public abstract class TerminalWithPin implements Pinnable {
 
 		KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
 		generator.initialize(new RSAKeyGenParameterSpec(Util.MODULUS_LENGTH * 8, BigInteger.valueOf(65537)));
-		// TODO: THIS IS NOW HARDCODED DO NOT RELEASE THIS CODE
 		KeyPair kp = generator.generateKeyPair();
 		privateT = kp.getPrivate();
 		try {
@@ -67,7 +67,7 @@ public abstract class TerminalWithPin implements Pinnable {
 		}
 
 		publicM = BackEnd.getInstance().getPublicMasterKey();
-		terminalNumber = new Random().nextInt();// TODO get the terminalNumber from the backend or somewhere else
+		terminalNumber = new Random().nextInt();
 		
 		output = new CMDView();
 		input = new CMDController();
@@ -78,7 +78,7 @@ public abstract class TerminalWithPin implements Pinnable {
 		output.println("Please enter your pin");
 		int pin = input.nextInt();
 		if (pin < 0 | pin >= 10000) {
-			System.out.println("Not a valid pin");
+			output.println("Not a valid pin");
 			throw new InvalidPinException(pin);
 		}
 		return ByteBuffer.allocate(Integer.BYTES).putInt(pin).array();

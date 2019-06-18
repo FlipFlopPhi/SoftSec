@@ -49,12 +49,6 @@ public class Pumper extends TerminalWithPin {
 			for (int i = 0; i < transactionInfoHashed.length; i++)
 				msg[Util.MODULUS_LENGTH + i] = transactionInfoHashed[i];
 			
-			System.out.print("transactioninfo: ");
-			for (byte b : msg) {
-				System.out.print(String.format("%02x,", b));
-			}
-			System.out.println(".");
-			
 			byte[] certificate = Util.decryptAES(aesKey,
 					Util.communicate(card, Step.Pump1, Util.encryptAES(aesKey, msg), 0));
 			/** The returned message decrypted once*/
@@ -85,7 +79,7 @@ public class Pumper extends TerminalWithPin {
 	 * @return
 	 */
 	private boolean isTankFull() {
-		output.println("Ïs the tank full?");
+		output.println("Is the tank full? [Yes=1/No=anything else]");
 		if (input.nextInt() == 1) {
 			return true;
 		}

@@ -49,19 +49,6 @@ public class Personalizer {
 			
 			int pin = 1234;
 			int cardNumber = new Random().nextInt();
-			/*
-			System.out.println("Is this a new Account? (Y/N)");
-			Scanner scanner = new Scanner(System.in);
-			String input;
-			if ((input = scanner.next()).equals("Y")) {
-				BackEnd.getInstance().registerCard(cardNumber, new Account());
-			} else {
-				scanner.close();
-				throw new FailedPersonalizationException("This mode is not supported yet.");
-				//TODO do something with this;
-			}
-			scanner.close();
-			*/
 			BackEnd.getInstance().registerCard(cardNumber, new Account()); //TODO remove this and uncomment earlier code
 			
 			KeyPairGenerator generator;
@@ -79,12 +66,6 @@ public class Personalizer {
 			RSAPrivateKey privateC = (RSAPrivateKey) kp.getPrivate();
 			Util.communicate(card, Step.Personalize, Arrays.copyOfRange(privateC.getModulus().toByteArray(),1,129), 1);
 			
-			System.out.print("Pexp:");
-			for (byte b : Arrays.copyOfRange(privateC.getPrivateExponent().toByteArray(),1,129)) {
-				System.out.print(String.format("%02x,", b));
-			}
-			System.out.println(".");
-			
 			Util.communicate(card, Step.Personalize2, privateC.getPrivateExponent().toByteArray(), 1);
 			
 			byte[] certificateC; try {
@@ -98,25 +79,6 @@ public class Personalizer {
 			persT3.addPublicRSAKey(BackEnd.getInstance().getPublicMasterKey())
 				.add(Arrays.copyOf(certificateC, 64)).add(pin).add(cardNumber);
 			byte[] responseData = Util.communicate(card, Step.Personalize3, persT3.array, 130);
-			
-			/*byte modulusChecksum = Util.checkSum(BackEnd.getInstance().getPublicMasterKey().getModulus().toByteArray());
-			byte exponentChecksum = Util.checkSum(BackEnd.getInstance().getPublicMasterKey().getPublicExponent().toByteArray());
-			if (responseData[0] !=  modulusChecksum ||
-					responseData[1] != exponentChecksum) {
-				System.out.println(String.format("Modulus: Expected: %02x Received: %02x", modulusChecksum, responseData[0]));
-				System.out.println(String.format("Exponent: Expected: %02x Received: %02x", exponentChecksum, responseData[1]));
-				for (byte b : responseData) {
-					System.out.print(String.format("%02x,", b));
-				}
-				System.out.println(".");
-				for (byte b : BackEnd.getInstance().getPublicMasterKey().getModulus().toByteArray()) {
-					System.out.print(String.format("%02x,", b));
-				}
-				System.out.println(".");
-				System.out.println(BackEnd.getInstance().getPublicMasterKey().getModulus().toByteArray().length);
-				throw new FailedPersonalizationException("Masterkey checksum failed");
-			}*/
-			
 			
 			Util.communicate(card, Step.Personalize4, Arrays.copyOfRange(certificateC, 64, 256), 1);
 			

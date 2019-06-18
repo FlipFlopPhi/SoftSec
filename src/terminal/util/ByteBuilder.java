@@ -9,8 +9,8 @@ import java.security.interfaces.RSAPublicKey;
 import java.util.Arrays;
 
 /**
+ * ByteBuilders can be used to build byte arrays in a more clear and eloquent manner.
  * @author pspaendonck
- *
  */
 public class ByteBuilder {
 

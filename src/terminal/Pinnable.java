@@ -3,6 +3,8 @@
  */
 package terminal;
 
+import terminal.exception.InvalidPinException;
+
 /**
  * @author pspaendonck
  *

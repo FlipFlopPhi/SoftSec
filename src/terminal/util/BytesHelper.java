@@ -7,6 +7,11 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.TimeZone;
 
+/**
+ * Utility class used to convert data types to byte arrays and vice versa
+ * @author Vizu
+ *
+ */
 public final class BytesHelper {
 	
 

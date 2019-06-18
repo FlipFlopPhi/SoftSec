@@ -9,8 +9,7 @@ package terminal.exception;
  */
 public class IncorrectSequenceNumberException extends Exception {
 
-	public IncorrectSequenceNumberException() {
-		super("SequenceNumberJammed ABORT IMMEDIATELY! CALL THE SECRET SERVICE!"
-					+ "EXECUTE ORDER 420!");
+	public IncorrectSequenceNumberException(int encounteredSeqNr, int expectedSeqNr) {
+		super("Incorrect Sequence number encountered: "+encounteredSeqNr+" while "+expectedSeqNr+" was expected.");
 	}
 }

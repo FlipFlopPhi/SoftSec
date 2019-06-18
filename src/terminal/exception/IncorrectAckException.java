@@ -1,7 +1,7 @@
 /**
  * 
  */
-package terminal.util;
+package terminal.exception;
 
 /**
  * @author pspaendonck

@@ -26,14 +26,16 @@ import javax.crypto.SecretKey;
 import javax.smartcardio.*;
 
 import terminal.BackEnd;
-import terminal.InvalidPinException;
 import terminal.MainTest;
 import terminal.Pinnable;
 import terminal.Step;
 import terminal.TerminalType;
 import terminal.exception.CardBlockedException;
+import terminal.exception.IncorrectAckException;
 import terminal.exception.IncorrectResponseCodeException;
 import terminal.exception.IncorrectSequenceNumberException;
+import terminal.exception.InvalidPinException;
+import terminal.exception.MismatchedHashException;
 
 /**
  * @author pspaendonck
@@ -76,67 +78,63 @@ public final class Util {
 	 *                                          happens during encryption or
 	 *                                          decryption.
 	 * @throws IncorrectAckException
-	 * @throws MismatchedHashException 
+	 * @throws MismatchedHashException
 	 */
 	public final static Triple<SecretKey, PublicKey, Integer> handSjaak(Card card, TerminalType type, byte[] versions,
-			byte[] certificateT, PublicKey publicM, PrivateKey privateT)
-			throws IncorrectSequenceNumberException, GeneralSecurityException, CardException, IncorrectAckException, MismatchedHashException {
+			byte[] certificateT, PublicKey publicM, PrivateKey privateT) throws IncorrectSequenceNumberException,
+			GeneralSecurityException, CardException, IncorrectAckException, MismatchedHashException {
 		// Generate SequenceNumber first
 		Random rngsusXSuperStar = new Random();
-		final int modulus = (int) Math.pow(2,15);
+		final int modulus = (int) Math.pow(2, 15);
 		final short R = (short) rngsusXSuperStar.nextInt(modulus);
 
 		// Generate the initial handshake message (The Hello)
 		ByteBuilder initMsg = new ByteBuilder(1 + 1 + versions.length + 2 + 128);
-		initMsg.add(type.getByte()).add((byte)versions.length).add(versions).add(R).add(certificateT, 0, 128);
-		
+		initMsg.add(type.getByte()).add((byte) versions.length).add(versions).add(R).add(certificateT, 0, 128);
+
 		// Start Communication
 		try {
 			if (communicate(card, Step.Handshake1, initMsg.array, 1)[0] != ACK)
 				throw new IncorrectAckException();
 			byte[] reply = communicate(card, Step.Handshake2,
 					Arrays.copyOfRange(certificateT, 128, CERTIFICATE_BYTESIZE), CARDNUMBER_BYTESIZE + 1 + 128 + 64);
-			int cardNumber = BytesHelper.toInt(Arrays.copyOf(reply,4));
+			int cardNumber = BytesHelper.toInt(Arrays.copyOf(reply, 4));
 			byte version = reply[CARDNUMBER_BYTESIZE];
 			// TODO: Make support for version handling of card and terminal on the
 			// terminalside.
 			byte[] reply2 = communicate(card, Step.Handshake3, new byte[] { ACK }, 192);
 			byte[] certificateC1 = new byte[128];
-			for (int i= 0; i<64;i++) {
-				certificateC1[i] = reply[4+1+128+i];
+			for (int i = 0; i < 64; i++) {
+				certificateC1[i] = reply[4 + 1 + 128 + i];
 			}
 			for (int i = 0; i < 64; i++) {
-				certificateC1[64+i] = reply2[i];
+				certificateC1[64 + i] = reply2[i];
 			}
 			certificateC1 = decrypt(publicM, certificateC1);
-			
+
 			byte[] certificateC2 = new byte[128];
 			for (int i = 0; i < 128; i++) {
 				certificateC2[i] = reply2[64 + i];
 			}
-			certificateC2 = decrypt(publicM,certificateC2);
-			
+			certificateC2 = decrypt(publicM, certificateC2);
+
 			byte[] mod = new byte[129];
-			mod[0] =0;
-			for(int i=0;i<117; i++) {
-				mod[1+i] = certificateC1[i];
+			mod[0] = 0;
+			for (int i = 0; i < 117; i++) {
+				mod[1 + i] = certificateC1[i];
 			}
-			for(int i=0; i<11; i++) {
-				mod[118+i] = certificateC2[i];
+			for (int i = 0; i < 11; i++) {
+				mod[118 + i] = certificateC2[i];
 			}
-			
-			byte[] exp = Arrays.copyOfRange(certificateC2, 11, 11+3);
-			System.out.println(new BigInteger(mod) +","+exp.length);
+
+			byte[] exp = Arrays.copyOfRange(certificateC2, 11, 11 + 3);
 			// We want to retrieve the publicC first
-			PublicKey publicC = KeyFactory.getInstance("RSA").generatePublic(
-					new RSAPublicKeySpec(new BigInteger(mod), new BigInteger(exp)));
+			PublicKey publicC = KeyFactory.getInstance("RSA")
+					.generatePublic(new RSAPublicKeySpec(new BigInteger(mod), new BigInteger(exp)));
 			byte[] sequenceNumberEncrypted = Arrays.copyOfRange(reply, CARDNUMBER_BYTESIZE + 1,
 					CARDNUMBER_BYTESIZE + 1 + 128);
-			System.out.println(String.format("%02x",decrypt(publicC, sequenceNumberEncrypted)[1]));
 			short returnedSeqNr = BytesHelper.toShort(decrypt(publicC, sequenceNumberEncrypted));
-			System.out.println("we komen er wel: "+returnedSeqNr);
 			short randomIncrement = (short) Math.floorMod(returnedSeqNr - R, modulus);
-			System.out.println("pplus hoeveel? "+randomIncrement);
 			// TODO: check the certificate's date. and checksum the hash
 
 			// Send Message 3transmit
@@ -145,26 +143,20 @@ public final class Util {
 			SecretKey aesKey = generator.generateKey();
 			byte[] keyMsg = Arrays.copyOf(aesKey.getEncoded(), AES_KEYSIZE / 8 + 2);
 			byte[] incrementedR = BytesHelper.fromShort((short) Math.floorMod(R + 2 * randomIncrement, modulus));
-			//byte[] incrementedR = BytesHelper.fromShort((short) 0);
+			// byte[] incrementedR = BytesHelper.fromShort((short) 0);
 			keyMsg[AES_KEYSIZE / 8] = incrementedR[0];
 			keyMsg[AES_KEYSIZE / 8 + 1] = incrementedR[1];
 			// Send + Response
 			byte[] blockT = encrypt(privateT, keyMsg);
-			
+
 			communicate(card, Step.Handshake4, encrypt(publicC, Arrays.copyOf(blockT, 117)), 1);
 
 			reply = communicate(card, Step.Handshake5, encrypt(publicC, Arrays.copyOfRange(blockT, 117, 128)), 16);
 
-			System.out.println("aes: "+checkSum(encrypt(aesKey,"AES/ECB/NoPadding",new byte[16])));
-			System.out.println("repluy: "+checkSum(reply));
-			returnedSeqNr = BytesHelper.toShort(Arrays.copyOf(decrypt(aesKey, "AES/ECB/NoPadding", reply),22));
-			System.out.println(checkSum(reply = decrypt(aesKey, "AES/ECB/NoPadding", reply)));
-			for(byte b : reply) {
-				System.out.print(b+" ,");
-			}
-			System.out.println("\n"+returnedSeqNr);
+			returnedSeqNr = BytesHelper.toShort(Arrays.copyOf(decrypt(aesKey, "AES/ECB/NoPadding", reply), 22));
+
 			if (returnedSeqNr != (short) Math.floorMod(R + 3 * randomIncrement, modulus))
-				throw new IncorrectSequenceNumberException();
+				throw new IncorrectSequenceNumberException(returnedSeqNr, Math.floorMod(R + 3 * randomIncrement, modulus));
 			return new Triple<SecretKey, PublicKey, Integer>(aesKey, publicC, Integer.valueOf(cardNumber));
 		} catch (CardException e) {
 			e.printStackTrace();
@@ -210,22 +202,12 @@ public final class Util {
 			} catch (InvalidPinException e) {
 				continue;
 			}
-			byte[] msg = Arrays.copyOf(encryptAES(key,pin), 2*HASH_LENGTH);// Copy the pin, leaving room for the hash of the
-																		// pin.
-			byte[] hash = encryptAES(key,hash(pin));
-			//byte[] hash = encryptAES(key,hash(new byte[64]));
-			System.out.print("hash: ");
-			for (byte b : hash(pin)) {
-				System.out.print(String.format("%02x,", b));
-			}
-			System.out.println(".");
+			//We'll copy the pin leaving room for the hash of the pin
+			byte[] msg = Arrays.copyOf(encryptAES(key, pin), 2 * HASH_LENGTH);
+			byte[] hash = encryptAES(key, hash(pin));
 			for (int i = 0; i < HASH_LENGTH; i++)
-				msg[HASH_LENGTH+ i] = hash[i];
-			byte[] reply = decrypt(key, "AES/ECB/NoPadding",
-					communicate(card, Step.Pin, msg, 16));
-			for(byte b:reply) {
-				System.out.print(b+", ");
-			}
+				msg[HASH_LENGTH + i] = hash[i];
+			byte[] reply = decrypt(key, "AES/ECB/NoPadding", communicate(card, Step.Pin, msg, 16));
 			if (reply[0] == PIN_SUCCESFUL) {
 				byte[] amountOnCard = Arrays.copyOfRange(reply, 1, 5);
 				System.out.println(BytesHelper.toInt(amountOnCard));
@@ -245,18 +227,18 @@ public final class Util {
 		}
 	}
 
-	public static void printAPDU (CommandAPDU apdu) {
+	public static void printAPDU(CommandAPDU apdu) {
 		String response = "C: L:" + apdu.getBytes().length + " ";
 		for (byte b : apdu.getBytes()) {
-			response += String.format("%02x,",b);
+			response += String.format("%02x,", b);
 		}
 		System.out.println(response);
 	}
 
-	public static void printAPDU (ResponseAPDU apdu) {
+	public static void printAPDU(ResponseAPDU apdu) {
 		String response = "R: L:" + apdu.getBytes().length + " ";
 		for (byte b : apdu.getBytes()) {
-			response += String.format("%02x,",b);
+			response += String.format("%02x,", b);
 		}
 		System.out.println(response);
 	}
@@ -265,11 +247,10 @@ public final class Util {
 		CardChannel channel = card.getBasicChannel();
 
 		/*
-		byte[] test= {0x04, 0x03, 0x02, 0x01};
-		printAPDU(new CommandAPDU(0xD0, 0, step.P1, 25, test, 4));
-		response = channel.transmit(new CommandAPDU(0xD0, 0, step.P1, 25, test, 4));
-		printAPDU(response);
-		*/
+		 * byte[] test= {0x04, 0x03, 0x02, 0x01}; printAPDU(new CommandAPDU(0xD0, 0,
+		 * step.P1, 25, test, 4)); response = channel.transmit(new CommandAPDU(0xD0, 0,
+		 * step.P1, 25, test, 4)); printAPDU(response);
+		 */
 
 		printAPDU(new CommandAPDU(0xD0, (byte) 0, step.P1, step.P2, message, responseLength));
 		ResponseAPDU response = channel
@@ -283,10 +264,11 @@ public final class Util {
 
 	public static void sendSelect(Card card) throws CardException {
 		CardChannel cardChan = card.getBasicChannel();
-		byte[] APP_ID = {(byte) 0x12, (byte) 0x34, (byte) 0x56, (byte) 0x78, (byte) 0x90, (byte) 0xab, };
-		
-		ResponseAPDU response = cardChan.transmit(new CommandAPDU((byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, APP_ID));
-		
+		byte[] APP_ID = { (byte) 0x12, (byte) 0x34, (byte) 0x56, (byte) 0x78, (byte) 0x90, (byte) 0xab, };
+
+		ResponseAPDU response = cardChan
+				.transmit(new CommandAPDU((byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, APP_ID));
+
 		int sw1 = response.getSW1();
 		if (sw1 == 0x61 | sw1 == 0x90) {
 			System.out.println("Select succeeded");
@@ -294,43 +276,45 @@ public final class Util {
 		}
 		throw new CardException("Select failed, Response Error returned" + response.getSW1() + "," + response.getSW2());
 	}
-	
+
 	/**
 	 * @author https://gist.github.com/dmydlarz/32c58f537bb7e0ab9ebf
 	 * @param privateKey
 	 * @param message
 	 * @return
-	 * @throws BadPaddingException 
-	 * @throws IllegalBlockSizeException 
-	 * @throws NoSuchPaddingException 
-	 * @throws NoSuchAlgorithmException 
-	 * @throws InvalidKeyException 
+	 * @throws BadPaddingException
+	 * @throws IllegalBlockSizeException
+	 * @throws NoSuchPaddingException
+	 * @throws NoSuchAlgorithmException
+	 * @throws InvalidKeyException
 	 * @throws Exception
 	 */
-	public static byte[] encrypt(Key privateKey, byte[] message) throws InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException {
+	public static byte[] encrypt(Key privateKey, byte[] message) throws InvalidKeyException, NoSuchAlgorithmException,
+			NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException {
 		return encrypt(privateKey, "RSA/ECB/PKCS1Padding", message);
 	}
 
-	private static byte[] encrypt(Key key, String scheme, byte[] message) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+	private static byte[] encrypt(Key key, String scheme, byte[] message) throws NoSuchAlgorithmException,
+			NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 		Cipher cipher = Cipher.getInstance(scheme);
 		cipher.init(Cipher.ENCRYPT_MODE, key);
 
 		return cipher.doFinal(message);
 	}
-	
-	public static byte[] encryptAES(SecretKey secretKey, byte[] message) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+
+	public static byte[] encryptAES(SecretKey secretKey, byte[] message) throws NoSuchAlgorithmException,
+			NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 		Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
 		cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-		
-		ByteBuilder output = new ByteBuilder(16*(int) Math.ceil(message.length/16f));
-		for(int chunk=0; chunk< Math.ceil(message.length/16f); chunk++) {
-			output.add(cipher.doFinal(Arrays.copyOfRange(message, 16*chunk, 16*(chunk+1))) );
-			
+
+		ByteBuilder output = new ByteBuilder(16 * (int) Math.ceil(message.length / 16f));
+		for (int chunk = 0; chunk < Math.ceil(message.length / 16f); chunk++) {
+			output.add(cipher.doFinal(Arrays.copyOfRange(message, 16 * chunk, 16 * (chunk + 1))));
+
 		}
-		
+
 		return output.array;
 	}
-
 
 	/**
 	 * * @author https://gist.github.com/dmydlarz/32c58f537bb7e0ab9ebf
@@ -349,31 +333,31 @@ public final class Util {
 
 		return cipher.doFinal(encrypted);
 	}
-	
-	public static byte[] decryptAES(Key secretKey, byte[] message) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+
+	public static byte[] decryptAES(Key secretKey, byte[] message) throws NoSuchAlgorithmException,
+			NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 		Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
 		cipher.init(Cipher.DECRYPT_MODE, secretKey);
-		
+
 		ByteBuilder output = new ByteBuilder(message.length);
-		
-		for(int chunk=0; chunk < message.length/16f; chunk++) {
-			output.add(cipher.doFinal(Arrays.copyOfRange(message, 16*chunk, 16*(chunk+1))) );
-			
+
+		for (int chunk = 0; chunk < message.length / 16f; chunk++) {
+			output.add(cipher.doFinal(Arrays.copyOfRange(message, 16 * chunk, 16 * (chunk + 1))));
+
 		}
-		
+
 		return output.array;
 	}
-	
 
 	public static byte[] hash(byte[] data) throws NoSuchAlgorithmException {
 		MessageDigest md = MessageDigest.getInstance("MD5");
 		return md.digest(data);
 	}
-	
+
 	public static String checkSum(byte[] array) {
 		byte check = 0;
-		for(byte b : array)
-			check+=b;
+		for (byte b : array)
+			check += b;
 		return String.format("%02x", check);
 	}
 }

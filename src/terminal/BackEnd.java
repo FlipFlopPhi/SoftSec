@@ -76,6 +76,7 @@ public class BackEnd implements IBackEnd {
 		return value;
 	}
 
+	@SuppressWarnings("unchecked")
 	private BackEnd() {
 		try {
 			cardKeys = (Map<Integer, PublicKey>) readField(CARDKEYSFIELDNAME);
@@ -174,20 +175,14 @@ public class BackEnd implements IBackEnd {
 	}
 
 	public byte[] requestCertificate(RSAPublicKey publicKey) throws GeneralSecurityException {
-
 		Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
 		calendar.add(Calendar.YEAR, 5);
 		byte[] date = BytesHelper.fromDate(calendar);
-		System.out.print(String.format("DATE:: %02x,", date[0]));
-		System.out.println(String.format("%02x,", date[1]));
 		ByteBuilder hashInput = new ByteBuilder(Util.MODULUS_LENGTH + Util.EXPONENT_LENGTH + 2)
 				.addPublicRSAKey(publicKey).add(date);
 		byte[] hash = Util.hash(hashInput.array);
-		System.out.println("what");
 		ByteBuilder certificate = new ByteBuilder(256);
 		certificate.add(requestMasterEncryption(Arrays.copyOf(hashInput.array, Util.RSA_BLOCK_LENGTH)));
-
-		System.out.println("yeah");
 		byte[] cert2 = Arrays.copyOfRange(hashInput.array, Util.RSA_BLOCK_LENGTH, Util.MODULUS_LENGTH + 3 + 2 + 16);
 		for (int i = 0; i < 16; i++)
 			cert2[11 + 3 + 2 + i] = hash[i];
