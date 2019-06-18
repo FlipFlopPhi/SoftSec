@@ -181,9 +181,9 @@ public class BackEnd implements IBackEnd {
 		byte[] hash = Util.hash(hashInput.array);
 		ByteBuilder certificate = new ByteBuilder(256);
 		certificate.add(requestMasterEncryption(Arrays.copyOf(hashInput.array, Util.RSA_BLOCK_LENGTH)));
-		byte[] cert2 = Arrays.copyOfRange(hashInput.array, Util.RSA_BLOCK_LENGTH, Util.MODULUS_LENGTH + 3 + 2 + 16);
+		byte[] cert2 = Arrays.copyOfRange(hashInput.array, Util.RSA_BLOCK_LENGTH, hashInput.length + 16);
 		for (int i = 0; i < 16; i++)
-			cert2[11 + 3 + 2 + i] = hash[i];
+			cert2[11 + 3 + 4 + 2 + i] = hash[i];
 		certificate.add(requestMasterEncryption(cert2));
 		return certificate.array;
 	}
