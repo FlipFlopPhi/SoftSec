@@ -6,4 +6,3 @@ Card/RationingApplet/bin/*
 Card/TestApplet/bin/testapplet/*.class
 Card/TestApplet/bin/testapplet/javacard/*.cap
 Card/TestTerminal/bin/*.jar
-

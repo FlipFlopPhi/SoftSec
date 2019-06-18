@@ -385,7 +385,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         
         // Compare the calculated hash with the decrypted hash
         for (short i = 0; i < HASH_BYTESIZE; i++) {
-            if (notepad[i] != notepad[(short) (i + CERTIFICATE_BYTESIZE + RSA_KEY_BYTESIZE + DATE_BYTESIZE)]) {
+            if (notepad[i] != notepad[(short) (i + CERTIFICATE_BYTESIZE + RSA_KEY_BYTESIZE + IDENTIFIER_BYTESIZE + DATE_BYTESIZE)]) {
                 ISOException.throwIt(ISO7816.SW_SECURE_MESSAGING_NOT_SUPPORTED);
             }
         }
@@ -784,14 +784,14 @@ public class RationingApplet extends Applet implements ISO7816 {
         //TODO check things in transactioninfo
         // Compare the terminalnumber from the certificate with the terminalnumber in the transactioninfo
         for (short i = 0; i < IDENTIFIER_BYTESIZE; i++) {
-        	if (terminalNumber[i] != notepad[(short) (msgSize + DATE_BYTESIZE + 4 + i)]) {
+        	if (terminalNumber[i] != notepad[(short) (msgSize + DATE_BYTESIZE + i)]) {
         		ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         	}
         }
         
         //	Compare the cardnumber on the card with the cardnumber in the transactioninfo
         for (short i = 0; i < IDENTIFIER_BYTESIZE; i++) {
-        	if (cardNumber[i] != notepad[(short) (msgSize + DATE_BYTESIZE + IDENTIFIER_BYTESIZE + 4 + i)]) {
+        	if (cardNumber[i] != notepad[(short) (msgSize + DATE_BYTESIZE + IDENTIFIER_BYTESIZE + i)]) {
         		ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
         	}
         }

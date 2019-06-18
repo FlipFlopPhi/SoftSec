@@ -55,7 +55,8 @@ public abstract class TerminalWithPin implements Pinnable {
 
 	public TerminalWithPin(TerminalType type) throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, CertificateGenerationException {
 		this.type = type;
-		terminalNumber = new Random().nextInt();
+		//terminalNumber = new Random().nextInt();
+		terminalNumber = 1;
 
 		KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
 		generator.initialize(new RSAKeyGenParameterSpec(Util.MODULUS_LENGTH * 8, BigInteger.valueOf(65537)));
