@@ -111,7 +111,7 @@ public final class Util {
 					break;
 				}
 			}
-			if (!versionNotSupported) 
+			if (versionNotSupported) 
 				throw new VersionUnsupportedException();
 			// terminalside.
 			byte[] reply2 = communicate(card, Step.Handshake3, new byte[] { ACK }, 192);

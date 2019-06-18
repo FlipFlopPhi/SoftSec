@@ -54,11 +54,11 @@ public class Personalizer {
 				System.out.println("Pin entered incorrectly, please try again");
 			}
 			System.out.println("Please enter your name:");
-			String name = in.nextLine();
+			String name = in.next();
 			
 			System.out.println("Please enter your BSN:");
 			BigInteger bsn = in.nextBigInteger();
-			in.close();
+			//in.close();
 			
 			
 			
