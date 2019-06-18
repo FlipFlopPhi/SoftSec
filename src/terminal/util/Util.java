@@ -147,15 +147,17 @@ public final class Util {
 					CARDNUMBER_BYTESIZE + 1 + 128);
 			short returnedSeqNr = BytesHelper.toShort(decrypt(publicC, sequenceNumberEncrypted));
 			short randomIncrement = (short) Math.floorMod(returnedSeqNr - R, modulus);
-			if (BytesHelper.toInt(BytesHelper.fromDate()) > BytesHelper.toInt(Arrays.copyOfRange(certificateC2, 11+3+4, 11+3+4))) {
-				throw new OutOfDateCertificateException();
+			byte[] now, certDate;
+			if (BytesHelper.toInt(now = BytesHelper.fromDate()) > BytesHelper.toInt(certDate = Arrays.copyOfRange(certificateC2, 11+3+4, 11+3+4+2))) {
+				throw new OutOfDateCertificateException(now, certDate);
 			}
 			byte[] hashInfo = Arrays.copyOf(certificateC1, MODULUS_LENGTH + EXPONENT_LENGTH + Integer.BYTES + 2);
 			for(int i = 0; i < 11 + EXPONENT_LENGTH + Integer.BYTES + 2; i++) {
-				hashInfo[RSA_BLOCK_LENGTH + i] = certificateC2[i];
+				hashInfo[certificateC1.length + i] = certificateC2[i];
 			}
+			System.out.println(new OutOfDateCertificateException(now, certDate).getMessage());
 			if (Arrays.equals(hash(hashInfo)
-					, Arrays.copyOfRange(certificateC2, 11 + EXPONENT_LENGTH + Integer.BYTES + 2, 11 + EXPONENT_LENGTH + Integer.BYTES + 2 + 16))) {
+					, Arrays.copyOfRange(certificateC2, 11 + EXPONENT_LENGTH + Integer.BYTES + 2, 11 + EXPONENT_LENGTH + Integer.BYTES + 2 + HASH_LENGTH))) {
 				throw new MismatchedHashException();
 			}
 			

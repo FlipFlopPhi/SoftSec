@@ -14,7 +14,7 @@ import java.util.TimeZone;
 public final class BytesHelper {
 	
 
-	public final static int STARTING_YEAR = 2020;
+	public final static int STARTING_YEAR = 2019;
 	
 	private BytesHelper() {} //this is so 
 	
@@ -76,6 +76,13 @@ public final class BytesHelper {
 		}
 		System.out.println(key.length);
 		return key;
+	}
+
+	public static String toDate(byte[] date) {// yyyyyyym mmmddddd
+		int y = (date[0] >> 1) + STARTING_YEAR;
+		int m = (toShort(date) >> 5) & 0xf;
+		int d = date[1] & 0x1f;
+		return y +"-"+m+"-"+d;
 	}
 }
   
