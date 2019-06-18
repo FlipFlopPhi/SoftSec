@@ -1,7 +1,6 @@
 package terminal.util;
 
 import java.nio.ByteBuffer;
-import java.security.PrivateKey;
 import java.security.interfaces.RSAPrivateKey;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -20,7 +19,14 @@ public final class BytesHelper {
 	private BytesHelper() {} //this is so 
 	
 	public static int toInt( byte[] bytes ) {
-	    return ByteBuffer.wrap(bytes).getInt();
+		byte[] bytes2;
+		if (bytes.length != 4) {
+			bytes2 = new byte[4];
+			for(int i=0; i<bytes.length; i++)
+				bytes2[3-i] = bytes[bytes.length-i-1];
+		} else
+			bytes2 = bytes;
+	    return ByteBuffer.wrap(bytes2).getInt();
 	}
 
 	public static short toShort(byte[] bytes) {

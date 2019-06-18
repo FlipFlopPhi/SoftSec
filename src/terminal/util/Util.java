@@ -341,6 +341,10 @@ public final class Util {
 		return output.array;
 	}
 
+	public static byte[] decrypt(Key publicKey, byte[] encrypted) throws GeneralSecurityException {
+		return decrypt(publicKey, "RSA", encrypted);// Uses RSA as defined in PKCS #1
+	}
+
 	/**
 	 * * @author https://gist.github.com/dmydlarz/32c58f537bb7e0ab9ebf
 	 * 
@@ -348,10 +352,6 @@ public final class Util {
 	 * @param encrypted
 	 * @return
 	 */
-	public static byte[] decrypt(Key publicKey, byte[] encrypted) throws GeneralSecurityException {
-		return decrypt(publicKey, "RSA", encrypted);// Uses RSA as defined in PKCS #1
-	}
-
 	private static byte[] decrypt(Key key, String scheme, byte[] encrypted) throws GeneralSecurityException {
 		Cipher cipher = Cipher.getInstance(scheme);
 		cipher.init(Cipher.DECRYPT_MODE, key);
