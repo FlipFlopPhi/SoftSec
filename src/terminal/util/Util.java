@@ -228,6 +228,9 @@ public final class Util {
 			} catch (InvalidPinException e) {
 				continue;
 			}
+			//Add the state to the end of the PIN to prevent replay attacks.
+			pin = Arrays.copyOf(pin, 5);
+			pin[4] = Step.Pin.P2;
 			//We'll copy the pin leaving room for the hash of the pin
 			byte[] msg = Arrays.copyOf(encryptAES(key, pin), 2 * HASH_LENGTH);
 			byte[] hash = encryptAES(key, hash(pin));
@@ -236,7 +239,6 @@ public final class Util {
 			byte[] reply = decrypt(key, "AES/ECB/NoPadding", communicate(card, Step.Pin, msg, 16));
 			if (reply[0] == PIN_SUCCESFUL) {
 				byte[] amountOnCard = Arrays.copyOfRange(reply, 1, 5);
-				System.out.println(BytesHelper.toInt(amountOnCard));
 				terminal.showSucces();
 				return amountOnCard;
 			} else if (reply[0] == PIN_FAILED) {
