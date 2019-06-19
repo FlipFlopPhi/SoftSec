@@ -221,7 +221,8 @@ public final class Util {
 	 */
 	public final static byte[] verifyPin(Card card, SecretKey key, Pinnable terminal)
 			throws CardException, GeneralSecurityException, IncorrectResponseCodeException, CardBlockedException {
-		while (true) {
+		int tries = 0; //We will keep track of the amount of tries, so that the attacker can't keep trying to find all possible encryptions, while intercepting the message to prevent its card from being blocked.
+		while (tries < 3) {
 			byte[] pin;
 			try {
 				pin = terminal.enterPin();
@@ -243,6 +244,7 @@ public final class Util {
 				return amountOnCard;
 			} else if (reply[0] == PIN_FAILED) {
 				terminal.showFailed();
+				tries++;
 				continue;
 			} else if (reply[0] == PIN_BLOCKED) {
 				terminal.showBlocked();
@@ -251,8 +253,8 @@ public final class Util {
 			} else {
 				throw new IncorrectResponseCodeException(reply[0]);
 			}
-
 		}
+		throw new CardBlockedException();
 	}
 
 	public static void printAPDU(CommandAPDU apdu) {
