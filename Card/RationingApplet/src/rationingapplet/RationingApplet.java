@@ -525,7 +525,12 @@ public class RationingApplet extends Applet implements ISO7816 {
         // Prepare the reponse
         // Load the credit into the notepad
         for (short i = 0; i<4; i++) {
-        	notepad[(short) ( 1 + i)] = creditOnCard[i];
+        	if (notepad[0] == (byte) 0) {
+        		notepad[(short) ( 1 + i)] = creditOnCard[i];
+        	}
+        	else {
+        		notepad[(short) ( 1 + i)] = (byte) 0;
+        	}
         }
 
         // Set the other bytes in notepad <16 to 0
