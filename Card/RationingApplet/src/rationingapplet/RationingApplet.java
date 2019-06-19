@@ -501,8 +501,13 @@ public class RationingApplet extends Applet implements ISO7816 {
         	//ISOException.throwIt((short)123);
         }
         
+        if (notepad[(short) 4] != (byte) 12) {
+        	//ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+        	ISOException.throwIt(notepad[(short) 4]);
+        }
+        
         // Check if received hash is the hashed pin.
-        hashSize = hasher.doFinal(notepad, (short) 0, (short) 4, notepad, (short) (HASH_BYTESIZE + pinSize));
+        hashSize = hasher.doFinal(notepad, (short) 0, (short) 5, notepad, (short) (HASH_BYTESIZE + pinSize));
 
         if (hashSize != HASH_BYTESIZE) {
         	ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
