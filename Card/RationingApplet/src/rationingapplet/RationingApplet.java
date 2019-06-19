@@ -589,7 +589,7 @@ public class RationingApplet extends Applet implements ISO7816 {
             }
         }
        
-
+        JCSystem.beginTransaction();
         // Store new credit value
         for (short i = 3; i>=(short)0; i--){
         	short temp = (short) (Util.makeShort((byte) 0, creditOnCard[i]) + Util.makeShort((byte) 0,notepad[i]));
@@ -598,7 +598,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         	}
         	creditOnCard[i] = (byte) temp;
         }
-
+        JCSystem.commitTransaction();
         
         // Set APDU to response
         short returnLength = apdu.setOutgoing();
@@ -686,6 +686,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         }
         
         // Decreae the credit on the card
+        JCSystem.beginTransaction();
         short overflow = 0;
         // Saldo change (first 4 bytes)
         for (short i = 3; i>=0; i--){
@@ -704,6 +705,7 @@ public class RationingApplet extends Applet implements ISO7816 {
         if (overflow == (byte) 1) {
         	ISOException.throwIt(ISO7816.SW_DATA_INVALID);
         }
+        JCSystem.commitTransaction();
 
         // Outgoing: The original transaction info, encrypted with privateT, also encrypted with privateC
         rSACipher.init(cardPrivateKey,Cipher.MODE_ENCRYPT);
